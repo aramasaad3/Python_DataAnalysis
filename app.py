@@ -13,20 +13,65 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-st.set_page_config(page_title="AI Landscape Dashboard", page_icon="📊", layout="wide")
+st.set_page_config(page_title="AI Landscape Dashboard", page_icon="📊", layout="wide",
+                   initial_sidebar_state="expanded")
 DATA = Path(__file__).parent / "data"
 
 # ---------------------------------------------------------------- style
-SURFACE, INK, INK2, GRID, OTHER = "#fcfcfb", "#0b0b0b", "#52514e", "#e8e7e3", "#a3a29c"
+SURFACE, PAGE, INK, INK2, GRID, OTHER = "#ffffff", "#f5f5f2", "#0b0b0b", "#52514e", "#ebeae6", "#a3a29c"
 # colour-blind-checked categorical order (blue, orange, aqua, yellow, magenta, green, violet, red)
 S = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
 DIVERGING = [[0, "#e34948"], [0.5, "#f0efec"], [1, "#2a78d6"]]
 
 st.markdown(
-    """<style>
-    .block-container {padding-top: 2rem; max-width: 1400px;}
-    [data-testid="stMetricValue"] {font-size: 1.7rem;}
-    h1 {font-weight: 700; letter-spacing: -0.02em;}
+    f"""<style>
+    .stApp {{background: {PAGE};}}
+    .block-container {{padding-top: 3rem; padding-bottom: 3rem; max-width: 1320px;}}
+    section[data-testid="stSidebar"] {{background: #ffffff; border-right: 1px solid {GRID};}}
+    section[data-testid="stSidebar"] .block-container {{padding-top: 1.2rem;}}
+
+    .brand {{display:flex; align-items:center; gap:12px; margin-bottom: 4px;}}
+    .brand-mark {{width:40px; height:40px; border-radius:10px; display:grid; place-items:center;
+                 background: linear-gradient(135deg, #2a78d6, #104281); color:#fff; font-weight:700;}}
+    .brand-name {{font-weight:700; font-size:1.02rem; color:{INK}; line-height:1.2;}}
+    .brand-sub {{font-size:.78rem; color:{INK2};}}
+    .side-label {{font-size:.72rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+                 color:{INK2}; margin: 6px 0 2px;}}
+    .badge {{display:inline-block; font-size:.72rem; font-weight:600; padding:2px 9px; border-radius:999px;
+            background:#e7f0fb; color:#1c5cab; margin-left:6px; vertical-align:middle;}}
+    .badge.off {{background:#f0efec; color:{INK2};}}
+    .side-foot {{font-size:.75rem; color:{INK2}; line-height:1.5;}}
+
+    .hero {{border-radius:18px; padding:26px 30px; color:#fff; margin-bottom:14px;
+           background: radial-gradient(1200px 300px at 85% -40%, #2a78d6 0%, rgba(42,120,214,0) 60%),
+                       linear-gradient(135deg, #0d1b2e 0%, #0f2a4a 100%);}}
+    .hero .eyebrow {{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:#9ec5f4; font-weight:600;}}
+    .hero h1 {{color:#fff; font-size:2.1rem; margin:.25rem 0 .35rem; padding:0; font-weight:700; letter-spacing:-.02em;}}
+    .hero p {{color:#c9d6e6; margin:0 0 14px; font-size:.95rem;}}
+    .chip {{display:inline-block; padding:5px 12px; margin:0 6px 6px 0; border-radius:999px; font-size:.8rem;
+           background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.16); color:#e6eef8;}}
+
+    .question {{background:#fff; border:1px solid {GRID}; border-left:4px solid #eda100; border-radius:12px;
+               padding:14px 18px; margin-bottom:22px; display:flex; gap:16px; align-items:flex-start;}}
+    .question .tag {{flex:none; font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+                    background:#fdf1d6; color:#8a5a00; padding:4px 10px; border-radius:6px; margin-top:2px;}}
+    .question .text {{color:{INK}; font-size:1rem; line-height:1.5;}}
+
+    .sec-head {{margin: 4px 0 14px;}}
+    .sec-head .num {{font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#2a78d6;}}
+    .sec-head h2 {{margin:.15rem 0 .2rem; padding:0; font-size:1.55rem; font-weight:700; color:{INK};}}
+    .sec-head p {{margin:0; color:{INK2};}}
+
+    [data-testid="stMetric"] {{background:#fff; border:1px solid {GRID}; border-radius:12px; padding:14px 16px;}}
+    [data-testid="stMetricLabel"] p {{font-size:.78rem; text-transform:uppercase; letter-spacing:.05em;
+                                      font-weight:600; color:{INK2};}}
+    [data-testid="stMetricValue"] {{font-size:1.6rem; font-weight:700;}}
+
+    [class*="st-key-card"] {{background:#fff; border-radius:14px;}}
+    .fig-tag {{display:inline-block; font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+              color:#1c5cab; background:#e7f0fb; padding:3px 9px; border-radius:6px; margin-bottom:8px;}}
+    .fig-title {{font-size:1.12rem; font-weight:700; color:{INK}; line-height:1.3;}}
+    .fig-sub {{font-size:.85rem; color:{INK2}; margin-top:2px;}}
     </style>""",
     unsafe_allow_html=True,
 )
@@ -47,17 +92,28 @@ def style(fig, height=400, legend=True):
     return fig
 
 
-def card_title(num, title, subtitle):
-    st.markdown(f"#### {num}. {title}")
-    st.caption(subtitle)
+def card(num):
+    return st.container(border=True, key=f"card{num}")
 
 
-def show(fig):
-    st.plotly_chart(fig, width="stretch", config={"displaylogo": False})
+def card_title(num, kind, title, subtitle):
+    st.markdown(
+        f'<div class="fig-tag">Figure {num:02d} · {kind}</div>'
+        f'<div class="fig-title">{title}</div><div class="fig-sub">{subtitle}</div>',
+        unsafe_allow_html=True)
+
+
+def section_head(num, title, question):
+    st.markdown(f'<div class="sec-head"><div class="num">Section {num} of 3</div>'
+                f'<h2>{title}</h2><p>{question}</p></div>', unsafe_allow_html=True)
+
+
+def show(fig, scroll_zoom=True):
+    st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": scroll_zoom})
 
 
 def nothing():
-    st.info("No data matches these filters. Widen the filters above.")
+    st.info("No data matches these filters. Widen the filters in the sidebar.")
 
 
 def sci(x):
@@ -166,41 +222,130 @@ ORG_ORDER = ["Industry", "Academia", "Industry + Academia", "Government / collec
 ORG_COLORS = {"Industry": S[0], "Academia": S[1], "Industry + Academia": S[2], "Government / collective": OTHER}
 MAKERS = ["Nvidia", "Google", "AMD", "Huawei", "Amazon", "Cambricon"]
 MAKER_COLORS = {m: S[i] for i, m in enumerate(MAKERS)}
-SECTOR_COLORS = {"Private": S[0], "Public": S[1], "Public/Private": S[2]}
+SECTORS = ["Private", "Public", "Public/Private"]
+SECTOR_COLORS = {s: S[i] for i, s in enumerate(SECTORS)}
+
+# ---------------------------------------------------------------- filter state
+MAX_YEAR = int(models["year"].max())
+HW_MIN, HW_MAX = int(hw["year"].min()), int(hw["year"].max())
+QUARTERS = list(sales.sort_values("quarter")["qlabel"].unique())
+DEFAULT_Q = ("Q1 2024", "Q2 2026") if {"Q1 2024", "Q2 2026"} <= set(QUARTERS) else (QUARTERS[0], QUARTERS[-1])
+CL_MIN, CL_MAX = int(clusters["year"].min()), int(clusters["year"].max())
+
+SECTIONS = {
+    "models": ("AI models", "Figures 1–5"),
+    "hardware": ("AI hardware", "Figures 6–7"),
+    "infra": ("Compute & infrastructure", "Figures 8–9"),
+}
+DEFAULTS = {
+    "models": {"m_year": (2012, MAX_YEAR), "m_domain": [], "m_country": [], "m_org": [],
+               "m_access": ACCESS_ORDER},
+    "hardware": {"h_maker": [], "h_type": [], "h_year": (2016, HW_MAX)},
+    "infra": {"s_makers": MAKERS, "s_quarters": DEFAULT_Q, "c_sector": SECTORS, "c_supplier": [],
+              "c_year": (2018, CL_MAX), "c_anon": False},
+}
+
+# keep every filter's value when its section is hidden, and seed the defaults on first load
+for group in DEFAULTS.values():
+    for k, v in group.items():
+        st.session_state[k] = st.session_state[k] if k in st.session_state else (
+            list(v) if isinstance(v, list) else v)
+
+
+def _same(a, b):
+    if isinstance(b, list):  # an empty selection means "all", same as the default
+        return set(a or b) == set(b)
+    return tuple(a) == tuple(b) if isinstance(b, tuple) else a == b
+
+
+def active_count(sec):
+    return sum(not _same(st.session_state[k], v) for k, v in DEFAULTS[sec].items())
+
+
+def reset(sec):
+    for k, v in DEFAULTS[sec].items():
+        st.session_state[k] = list(v) if isinstance(v, list) else v
+
+
+# ---------------------------------------------------------------- sidebar
+with st.sidebar:
+    st.markdown('<div class="brand"><div class="brand-mark">AI</div><div>'
+                '<div class="brand-name">AI Landscape</div>'
+                '<div class="brand-sub">Data analysis dashboard</div></div></div>', unsafe_allow_html=True)
+    st.markdown('<div class="side-label">Sections</div>', unsafe_allow_html=True)
+    sec = st.radio("Section", list(SECTIONS), key="section", label_visibility="collapsed",
+                   format_func=lambda k: SECTIONS[k][0], captions=[v[1] for v in SECTIONS.values()])
+    st.divider()
+
+    n_active = active_count(sec)
+    h1, h2 = st.columns([3, 2], vertical_alignment="center")
+    h1.markdown(f'<div class="side-label" style="margin:0">Filters'
+                f'<span class="badge {"" if n_active else "off"}">{n_active} active</span></div>',
+                unsafe_allow_html=True)
+    h2.button("Reset", on_click=reset, args=(sec,), disabled=n_active == 0, icon=":material/restart_alt:",
+              width="stretch")
+
+    if sec == "models":
+        st.slider("Publication year", 1950, MAX_YEAR, key="m_year")
+        st.multiselect("Domain", list(models["domain"].value_counts().index), key="m_domain",
+                       placeholder="All domains")
+        st.multiselect("Country", list(models["country"].value_counts().index), key="m_country",
+                       placeholder="All countries")
+        st.multiselect("Organization type", ORG_ORDER + ["Unknown"], key="m_org", placeholder="All types")
+        st.pills("Model access", ACCESS_ORDER, selection_mode="multi", key="m_access")
+    elif sec == "hardware":
+        st.multiselect("Manufacturer", list(hw["Manufacturer"].value_counts().index), key="h_maker",
+                       placeholder="All manufacturers")
+        st.multiselect("Chip type", list(hw["Type"].value_counts().index), key="h_type", placeholder="All types")
+        st.slider("Release year", HW_MIN, HW_MAX, key="h_year")
+    else:
+        st.markdown("**Chip sales** · figure 8")
+        st.pills("Chip designer", MAKERS, selection_mode="multi", key="s_makers")
+        st.select_slider("Quarters", options=QUARTERS, key="s_quarters")
+        st.markdown("**GPU clusters** · figure 9")
+        st.pills("Sector", SECTORS, selection_mode="multi", key="c_sector")
+        sup_opts = [s for s in clusters["GPU Supplier (primary)"].value_counts().index if s != "Anonymized"]
+        st.multiselect("Chip supplier", sup_opts, key="c_supplier", placeholder="All suppliers")
+        st.slider("First operational", CL_MIN, CL_MAX, key="c_year")
+        st.toggle("Include anonymized Chinese systems", key="c_anon",
+                  help="190 systems with no name or owner, placed at approximate locations in China.")
+
+    st.divider()
+    st.markdown('<div class="side-foot">Source: Epoch AI, epoch.ai/data (CC BY 4.0), November 2026.<br>'
+                'Built with pandas, NumPy, Plotly and Streamlit.</div>', unsafe_allow_html=True)
 
 # ---------------------------------------------------------------- header
-st.title("The AI Landscape in Data")
-st.caption(
-    "Models, chips, and the compute behind them. Every chart reacts to the filters in its tab. "
-    "Source: Epoch AI (CC BY 4.0), epoch.ai/data, November 2026 snapshot."
+st.markdown(
+    f"""<div class="hero">
+      <div class="eyebrow">Python · Data Analysis and Visualization</div>
+      <h1>The AI Landscape in Data</h1>
+      <p>Models, chips and the computing power behind them, from Epoch AI's public datasets.</p>
+      <span class="chip">{len(models):,} AI models</span><span class="chip">{len(hw):,} AI chips</span>
+      <span class="chip">{clusters['Name'].nunique():,} GPU clusters</span><span class="chip">9 interactive charts</span>
+    </div>
+    <div class="question"><span class="tag">Research question</span>
+      <span class="text">What is driving the AI boom: <b>bigger models</b>, <b>better chips</b>,
+      or <b>more computing infrastructure</b>? Each section answers one part.</span></div>""",
+    unsafe_allow_html=True,
 )
 
-tab_models, tab_hw, tab_infra = st.tabs(["AI models", "AI hardware", "Compute and infrastructure"])
+ss = st.session_state
 
-# ================================================================= TAB 1: MODELS
-with tab_models:
-    max_year = int(models["year"].max())
-    f1, f2, f3, f4 = st.columns([2, 3, 3, 3])
-    yr = f1.slider("Publication year", 1950, max_year, (2012, max_year))
-    dom_opts = list(models["domain"].value_counts().index)
-    sel_dom = f2.multiselect("Domain", dom_opts, placeholder="All domains")
-    cty_opts = list(models["country"].value_counts().index)
-    sel_cty = f3.multiselect("Country", cty_opts, placeholder="All countries")
-    sel_org = f4.multiselect("Organization type", ORG_ORDER + ["Unknown"], placeholder="All types")
-    sel_acc = st.pills("Model access", ACCESS_ORDER, selection_mode="multi", default=ACCESS_ORDER)
-
-    m = models[models["year"].between(*yr)]
-    if sel_dom:
-        m = m[m["domain"].isin(sel_dom)]
-    if sel_cty:
-        m = m[m["country"].isin(sel_cty)]
-    if sel_org:
-        m = m[m["org_type"].isin(sel_org)]
-    m = m[m["access"].isin(sel_acc or ACCESS_ORDER)].copy()
+# ================================================================= SECTION 1: MODELS
+if sec == "models":
+    section_head(1, "AI models", "How fast are AI models growing, and who builds them?")
+    m = models[models["year"].between(*ss.m_year)]
+    if ss.m_domain:
+        m = m[m["domain"].isin(ss.m_domain)]
+    if ss.m_country:
+        m = m[m["country"].isin(ss.m_country)]
+    if ss.m_org:
+        m = m[m["org_type"].isin(ss.m_org)]
+    m = m[m["access"].isin(ss.m_access or ACCESS_ORDER)].copy()
     m["domain_g"] = np.where(m["domain"].isin(TOP_DOMAINS), m["domain"], "Other")
     m["country_g"] = np.where(m["country"].isin(TOP_COUNTRIES), m["country"], "Other")
 
-    # trend fit used by KPI + chart 3
+    # trend fit used by KPI + figure 3
     fit = m.dropna(subset=["compute"])
     fit = fit[fit["compute"] > 0]
     slope = intercept = None
@@ -210,7 +355,7 @@ with tab_models:
     k1, k2, k3, k4 = st.columns(4)
     known = m[m["access"] != "Unknown"]
     k1.metric("Models in view", f"{len(m):,}")
-    k2.metric("Released with open weights",
+    k2.metric("Open weights",
               f"{(known['access'] == 'Open weights').mean():.0%}" if len(known) else "n/a")
     if fit.empty:
         k3.metric("Largest training run", "n/a")
@@ -218,19 +363,19 @@ with tab_models:
         top = fit.loc[fit["compute"].idxmax()]
         k3.metric("Largest training run", f"{sci(top['compute'])} FLOP", top["Model"], delta_color="off")
     if slope and slope > 0:
-        k4.metric("Training compute doubles every", f"{12 * np.log10(2) / slope:.1f} months",
+        k4.metric("Compute doubles every", f"{12 * np.log10(2) / slope:.1f} months",
                   help="Log-linear fit of training compute against publication date, for the models in view.")
     else:
-        k4.metric("Training compute doubles every", "n/a")
+        k4.metric("Compute doubles every", "n/a")
 
     if m.empty:
         nothing()
     else:
         # ---- 1. LINE
         a, b = st.columns(2)
-        with a, st.container(border=True):
-            card_title(1, "Language models took over from vision",
-                       "Line chart · notable models published per year, by domain")
+        with a, card(1):
+            card_title(1, "Line chart", "Language models took over from vision",
+                       "Notable models published per year, by domain")
             years = range(int(m["year"].min()), int(m["year"].max()) + 1)
             order = [d for d in TOP_DOMAINS + ["Other"] if d in m["domain_g"].unique()]
             cnt = (m.groupby(["year", "domain_g"]).size().unstack(fill_value=0)
@@ -243,11 +388,11 @@ with tab_models:
             show(style(fig))
 
         # ---- 2. STACKED BAR
-        with b, st.container(border=True):
-            card_title(2, "Who gets to use the models?",
-                       "Stacked bar chart · models per year by how they were released")
+        with b, card(2):
+            card_title(2, "Stacked bar chart", "Who gets to use the models?",
+                       "Models per year, by how they were released")
             mode = st.segmented_control("Show as", ["Count", "Share of year"], default="Count",
-                                        key="acc_mode")
+                                        key="acc_mode", label_visibility="collapsed")
             acc = m.groupby(["year", "access"]).size().reset_index(name="Models")
             if mode == "Share of year":
                 acc["Models"] = acc["Models"] / acc.groupby("year")["Models"].transform("sum") * 100
@@ -258,14 +403,16 @@ with tab_models:
             fig.update_traces(marker_line_color=SURFACE, marker_line_width=1.5)
             fig.update_layout(barmode="stack", bargap=0.15, barcornerradius=4)
             fig.update_xaxes(title=None)
-            show(style(fig))
+            show(style(fig, height=360))
 
         # ---- 3. BUBBLE SCATTER + TREND LINE
-        with st.container(border=True):
-            card_title(3, "Training compute grows exponentially",
-                       "Bubble scatter with trend line · each bubble is a model, size = number of parameters (log scale)")
+        with card(3):
+            t1, t2 = st.columns([3, 1], vertical_alignment="bottom")
+            with t1:
+                card_title(3, "Bubble scatter with trend line", "Training compute grows exponentially",
+                           "Each bubble is a model; bubble size = number of parameters (log scale)")
             orgs = list(fit["Organization"].value_counts().index[:40])
-            hl = st.selectbox("Highlight an organization", ["None"] + orgs, key="hl_org")
+            hl = t2.selectbox("Highlight an organization", ["None"] + orgs, key="hl_org")
             if fit.empty:
                 nothing()
             else:
@@ -299,9 +446,9 @@ with tab_models:
 
         # ---- 4. DONUT  + 5. VIOLIN
         a, b = st.columns(2)
-        with a, st.container(border=True):
-            card_title(4, "Where the models come from",
-                       "Donut chart · share of models by the developer's country (top 5 + other)")
+        with a, card(4):
+            card_title(4, "Donut chart", "The US builds most notable models",
+                       "Share of models by the developer's country (top 5 + other)")
             order = [c for c in TOP_COUNTRIES + ["Other"] if c in m["country_g"].unique()]
             share = m["country_g"].value_counts().reindex(order).reset_index()
             share.columns = ["Country", "Models"]
@@ -313,17 +460,18 @@ with tab_models:
                               hovertemplate="%{label}: %{value} models (%{percent})<extra></extra>")
             fig.add_annotation(text=f"<b>{len(m):,}</b><br>models", showarrow=False,
                                font=dict(size=18, color=INK))
-            fig = style(fig, height=420)
+            fig = style(fig, height=400)
             fig.update_layout(uniformtext_minsize=11, uniformtext_mode="hide",
                               legend=dict(orientation="v", x=1.0, y=0.5, yanchor="middle"))
             show(fig)
 
-        with b, st.container(border=True):
-            card_title(5, "Industry trains the biggest models",
-                       "Violin plot with box · distribution by organization type (log scale)")
+        with b, card(5):
+            card_title(5, "Violin plot with box", "Industry trains the biggest models",
+                       "Distribution by organization type (log scale)")
             metric = st.segmented_control(
                 "Measure", ["Training compute (FLOP)", "Parameters", "Training cost (2023 USD)"],
-                default="Training compute (FLOP)", key="violin_metric") or "Training compute (FLOP)"
+                default="Training compute (FLOP)", key="violin_metric",
+                label_visibility="collapsed") or "Training compute (FLOP)"
             col = {"Training compute (FLOP)": "compute", "Parameters": "params",
                    "Training cost (2023 USD)": "cost"}[metric]
             v = m[m[col] > 0].copy()
@@ -343,36 +491,42 @@ with tab_models:
                 fig.update_xaxes(tickangle=0, tickvals=present,
                                  ticktext=[p.replace(" + ", " +<br>").replace(" / ", " /<br>") for p in present])
                 fig.update_traces(meanline_visible=True, line_width=1.5)
-                show(style(fig, height=380, legend=False))
+                show(style(fig, height=352, legend=False))
 
         table_and_download(
             m[["Model", "Organization", "Publication date", "domain", "country", "org_type", "access",
                "Parameters", "Training compute (FLOP)", "Training compute cost (2023 USD)"]],
             "ai_models_filtered")
 
-# ================================================================= TAB 2: HARDWARE
-with tab_hw:
-    f1, f2, f3 = st.columns([3, 3, 2])
-    mk_opts = list(hw["Manufacturer"].value_counts().index)
-    sel_mk = f1.multiselect("Manufacturer", mk_opts, placeholder="All manufacturers")
-    ty_opts = list(hw["Type"].value_counts().index)
-    sel_ty = f2.multiselect("Chip type", ty_opts, placeholder="All types")
-    ymin, ymax = int(hw["year"].min()), int(hw["year"].max())
-    hyr = f3.slider("Release year", ymin, ymax, (2016, ymax))
+# ================================================================= SECTION 2: HARDWARE
+elif sec == "hardware":
+    section_head(2, "AI hardware", "How much better are the chips that train these models?")
+    h = hw[hw["year"].between(*ss.h_year) | hw["year"].isna()]
+    if ss.h_maker:
+        h = h[h["Manufacturer"].isin(ss.h_maker)]
+    if ss.h_type:
+        h = h[h["Type"].isin(ss.h_type)]
 
-    h = hw[hw["year"].between(*hyr) | hw["year"].isna()]
-    if sel_mk:
-        h = h[h["Manufacturer"].isin(sel_mk)]
-    if sel_ty:
-        h = h[h["Type"].isin(sel_ty)]
+    need = ["Tensor-FP16/BF16 performance (FLOP/s)", "Memory (bytes)",
+            "Memory bandwidth (byte/s)", "TDP (W)"]
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("Chips in view", f"{len(h):,}")
+    k2.metric("Manufacturers", f"{h['Manufacturer'].nunique():,}")
+    perf = h.dropna(subset=[need[0]])
+    if perf.empty:
+        k3.metric("Fastest chip (FP16)", "n/a")
+    else:
+        best = perf.loc[perf[need[0]].idxmax()]
+        k3.metric("Fastest chip (FP16)", f"{best[need[0]] / 1e12:,.0f} TFLOP/s", best["Hardware name"],
+                  delta_color="off")
+    mem = h.dropna(subset=[need[1]])
+    k4.metric("Largest memory", "n/a" if mem.empty else f"{mem[need[1]].max() / 1e9:,.0f} GB")
 
     a, b = st.columns(2)
     # ---- 6. RADAR
-    with a, st.container(border=True):
-        card_title(6, "Head-to-head: AI accelerators",
-                   "Radar chart · each spec scaled to the best of the selected chips (100 = best)")
-        need = ["Tensor-FP16/BF16 performance (FLOP/s)", "Memory (bytes)",
-                "Memory bandwidth (byte/s)", "TDP (W)"]
+    with a, card(6):
+        card_title(6, "Radar chart", "Head-to-head: AI accelerators",
+                   "Each spec scaled to the best of the selected chips (100 = best)")
         cand = h.dropna(subset=need).sort_values("release", ascending=False)
         names = list(cand["Hardware name"])
         defaults = [n for n in ["NVIDIA H100 SXM5 80GB", "AMD Instinct MI300X", "Google TPU v6e Trillium"]
@@ -411,9 +565,9 @@ with tab_hw:
             show(fig)
 
     # ---- 7. HEATMAP
-    with b, st.container(border=True):
-        card_title(7, "Which chip specs move together?",
-                   "Heatmap · correlation between hardware specs (log scale), for the chips in view")
+    with b, card(7):
+        card_title(7, "Heatmap", "Which chip specs move together?",
+                   "Correlation between hardware specs (log scale), for the chips in view")
         method = st.segmented_control("Correlation", ["Pearson", "Spearman"], default="Pearson",
                                       key="corr") or "Pearson"
         cols = {
@@ -440,32 +594,37 @@ with tab_hw:
                             aspect="auto")
             fig.update_traces(hovertemplate="%{y} vs %{x}: %{z:.2f}<extra></extra>", textfont_size=11)
             fig.update_layout(coloraxis_colorbar=dict(title="r", thickness=12))
-            show(style(fig, height=500))
+            show(style(fig, height=470))
             st.caption(f"Based on {len(h)} chips. Pairs with fewer than 8 chips reporting both specs are left blank.")
 
     table_and_download(
         h[["Hardware name", "Manufacturer", "Type", "Release date"] + need + ["Release price (USD)"]],
         "ai_hardware_filtered")
 
-# ================================================================= TAB 3: INFRASTRUCTURE
-with tab_infra:
-    # ---- 8. STACKED AREA
-    with st.container(border=True):
-        card_title(8, "The AI chip race, quarter by quarter",
-                   "Stacked area chart · estimated AI chips shipped by designer (median estimate)")
-        f1, f2, f3 = st.columns([3, 4, 2])
-        measure = f1.segmented_control(
-            "Measure", ["Compute (H100-equivalents)", "Chips shipped", "Spend (billion USD)", "Power draw (MW)"],
-            default="Compute (H100-equivalents)", key="sales_measure") or "Compute (H100-equivalents)"
-        quarters = list(sales.sort_values("quarter")["qlabel"].unique())
-        default_q = ("Q1 2024", "Q2 2026") if {"Q1 2024", "Q2 2026"} <= set(quarters) else (quarters[0], quarters[-1])
-        qrange = f2.select_slider("Quarters", options=quarters, value=default_q)
-        cumulative = f3.toggle("Cumulative", value=False)
-        sel_makers = st.pills("Chip designer", MAKERS, selection_mode="multi", default=MAKERS)
+# ================================================================= SECTION 3: INFRASTRUCTURE
+else:
+    section_head(3, "Compute & infrastructure", "How much computing power is being built, and where?")
 
-        q0, q1 = quarters.index(qrange[0]), quarters.index(qrange[1])
-        keep = quarters[q0:q1 + 1]
-        sv = sales[sales["qlabel"].isin(keep) & sales["Chip manufacturer"].isin(sel_makers or MAKERS)]
+    g = clusters[clusters["Sector"].isin(ss.c_sector or SECTORS) & clusters["year"].between(*ss.c_year)]
+    if ss.c_supplier:
+        g = g[g["GPU Supplier (primary)"].isin(ss.c_supplier)]
+    if not ss.c_anon:
+        g = g[~g["anon"]]
+
+    # ---- 8. STACKED AREA
+    with card(8):
+        card_title(8, "Stacked area chart", "The AI chip race, quarter by quarter",
+                   "Estimated AI chips shipped by designer (median estimate)")
+        t2, t3 = st.columns([5, 1], vertical_alignment="center")
+        measure = t2.segmented_control(
+            "Measure", ["Compute (H100-equivalents)", "Chips shipped", "Spend (billion USD)", "Power draw (MW)"],
+            default="Compute (H100-equivalents)", key="sales_measure",
+            label_visibility="collapsed") or "Compute (H100-equivalents)"
+        cumulative = t3.toggle("Cumulative", value=False)
+
+        q0, q1 = QUARTERS.index(ss.s_quarters[0]), QUARTERS.index(ss.s_quarters[1])
+        keep = QUARTERS[q0:q1 + 1]
+        sv = sales[sales["qlabel"].isin(keep) & sales["Chip manufacturer"].isin(ss.s_makers or MAKERS)]
         if sv.empty:
             nothing()
         else:
@@ -479,47 +638,35 @@ with tab_infra:
                           category_orders={"Designer": order}, labels={"qlabel": ""})
             fig.update_traces(line_width=1.5, hovertemplate="%{fullData.name}: %{y:,.1f}<extra></extra>")
             fig.update_layout(hovermode="x unified")
-            show(style(fig, height=430))
-            if q0 < quarters.index("Q1 2024"):
+            show(style(fig, height=420))
+            if q0 < QUARTERS.index("Q1 2024"):
                 st.caption("Before Q1 2024 the data covers only Nvidia (from 2022) and Google (from Q4 2022).")
 
     # ---- 9. MAP
-    with st.container(border=True):
-        card_title(9, "Where the GPU clusters are",
-                   "Bubble map · AI supercomputers worldwide, bubble size = computing power in H100-equivalents (log scale)")
-        f1, f2, f3, f4 = st.columns([3, 3, 3, 2])
-        sectors = f1.pills("Sector", list(SECTOR_COLORS), selection_mode="multi", default=list(SECTOR_COLORS))
-        sup_opts = [s for s in clusters["GPU Supplier (primary)"].value_counts().index if s != "Anonymized"]
-        sel_sup = f2.multiselect("Chip supplier", sup_opts, placeholder="All suppliers")
-        cy0, cy1 = int(clusters["year"].min()), int(clusters["year"].max())
-        cyr = f3.slider("First operational", cy0, cy1, (2018, cy1))
-        anon = f4.toggle("Include anonymized Chinese systems", value=False,
-                         help="190 systems with no name or owner, placed at approximate locations in China.")
+    k1, k2, k3, k4 = st.columns(4)
+    k1.metric("GPU clusters", f"{len(g):,}")
+    k2.metric("Total compute", f"{g['h100e'].sum() / 1e6:.2f}M H100e")
+    k3.metric("Total power", f"{g['power'].sum() / 1000:.1f} GW")
+    if len(g):
+        big = g.loc[g["h100e"].idxmax()]
+        k4.metric("Largest cluster", f"{big['h100e'] / 1000:,.0f}k H100e", big["Name"], delta_color="off")
+    else:
+        k4.metric("Largest cluster", "n/a")
 
-        g = clusters[clusters["Sector"].isin(sectors or list(SECTOR_COLORS)) & clusters["year"].between(*cyr)]
-        if sel_sup:
-            g = g[g["GPU Supplier (primary)"].isin(sel_sup)]
-        if not anon:
-            g = g[~g["anon"]]
-
-        k1, k2, k3, k4 = st.columns(4)
-        k1.metric("Clusters", f"{len(g):,}")
-        k2.metric("Total compute", f"{g['h100e'].sum() / 1e6:.2f}M H100e")
-        k3.metric("Total power", f"{g['power'].sum() / 1000:.1f} GW")
-        if len(g):
-            big = g.loc[g["h100e"].idxmax()]
-            k4.metric("Largest cluster", big["Name"], f"{big['h100e']:,.0f} H100e", delta_color="off")
-
+    with card(9):
+        card_title(9, "Bubble map", "Where the GPU clusters are",
+                   "AI supercomputers worldwide; bubble size = computing power in H100-equivalents (log scale)")
         if g.empty:
             nothing()
         else:
-            g = g.copy()
-            g["size"] = np.log10(g["h100e"].clip(lower=1)) + 1
-            g["Compute (H100e)"] = g["h100e"].map("{:,.0f}".format)
-            g["Power (MW)"] = g["power"].map(lambda x: "n/a" if pd.isna(x) else f"{x:,.0f}")
-            g["Since"] = g["date"].dt.strftime("%b %Y")
-            fig = px.scatter_geo(g, lat="latitude", lon="longitude", color="Sector", size="size", size_max=18,
-                                 color_discrete_map=SECTOR_COLORS, hover_name="Name",
+            gm = g.copy()
+            gm["size"] = np.log10(gm["h100e"].clip(lower=1)) + 1
+            gm["Compute (H100e)"] = gm["h100e"].map("{:,.0f}".format)
+            gm["Power (MW)"] = gm["power"].map(lambda x: "n/a" if pd.isna(x) else f"{x:,.0f}")
+            gm["Since"] = gm["date"].dt.strftime("%b %Y")
+            fig = px.scatter_geo(gm, lat="latitude", lon="longitude", color="Sector", size="size", size_max=18,
+                                 color_discrete_map=SECTOR_COLORS, category_orders={"Sector": SECTORS},
+                                 hover_name="Name",
                                  hover_data={"Owner": True, "Country": True, "Compute (H100e)": True,
                                              "Power (MW)": True, "Chip type (primary)": True, "Since": True,
                                              "size": False, "latitude": False, "longitude": False,
@@ -529,12 +676,9 @@ with tab_infra:
             fig.update_geos(showland=True, landcolor="#f0efec", showcountries=True, countrycolor="#d9d8d3",
                             showocean=True, oceancolor=SURFACE, showlakes=False, showframe=False,
                             coastlinecolor="#d9d8d3", bgcolor=SURFACE)
-            show(style(fig, height=540))
+            show(style(fig, height=540), scroll_zoom=False)
 
-        table_and_download(
-            g[["Name", "Owner", "Country", "Sector", "GPU Supplier (primary)", "Chip type (primary)",
-               "First Operational Date", "H100 equivalents", "Power Capacity (MW)"]] if len(g) else g,
-            "gpu_clusters_filtered")
-
-st.divider()
-st.caption("Built with Python: pandas, NumPy, Plotly and Streamlit. Data: Epoch AI, licensed CC BY 4.0.")
+    table_and_download(
+        g[["Name", "Owner", "Country", "Sector", "GPU Supplier (primary)", "Chip type (primary)",
+           "First Operational Date", "H100 equivalents", "Power Capacity (MW)"]],
+        "gpu_clusters_filtered")
