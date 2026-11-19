@@ -73,7 +73,12 @@ st.markdown(
     .fig-tag {{display:inline-block; font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
               color:#1c5cab; background:#e7f0fb; padding:3px 9px; border-radius:6px; margin-bottom:8px;}}
     .fig-title {{font-size:1.12rem; font-weight:700; color:{INK}; line-height:1.3;}}
-    .fig-sub {{font-size:.85rem; color:{INK2}; margin-top:2px;}}
+    .fig-sub {{font-size:.88rem; color:{INK2}; margin-top:4px; line-height:1.45;}}
+    .fig-sub b {{color:{INK}; font-weight:600;}}
+    .takeaway {{background:#f3f8fe; border:1px solid #d9e8fa; border-radius:10px; padding:10px 14px;
+               color:{INK}; font-size:.93rem; line-height:1.5; margin:2px 0 6px;}}
+    .takeaway .lbl {{font-size:.68rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+                    color:#1c5cab; margin-right:8px;}}
 
     .drivers {{display:grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap:14px; margin-bottom:16px;}}
     .driver {{background:#fff; border:1px solid {GRID}; border-radius:14px; padding:18px 20px;}}
@@ -99,7 +104,7 @@ def style(fig, height=400, legend=True):
     fig.update_layout(
         template="plotly_white", height=height,
         paper_bgcolor=SURFACE, plot_bgcolor=SURFACE,
-        font=dict(family="Segoe UI, Inter, system-ui, sans-serif", size=13, color=INK2),
+        font=dict(family="Segoe UI, Inter, system-ui, sans-serif", size=14, color=INK2),
         margin=dict(l=8, r=8, t=36, b=8),
         hoverlabel=dict(bgcolor="white", font_size=13, bordercolor=GRID),
         legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0, title_text=""),
@@ -117,7 +122,7 @@ def card(num):
 def card_title(num, kind, title, subtitle):
     st.markdown(
         f'<div class="fig-tag">Figure {num:02d} · {kind}</div>'
-        f'<div class="fig-title">{title}</div><div class="fig-sub">{subtitle}</div>',
+        f'<div class="fig-title">{title}</div><div class="fig-sub"><b>How to read:</b> {subtitle}</div>',
         unsafe_allow_html=True)
 
 
@@ -134,8 +139,42 @@ def nothing():
     st.info("No data matches these filters. Widen the filters in the sidebar.")
 
 
+SUP = str.maketrans("0123456789-", "⁰¹²³⁴⁵⁶⁷⁸⁹⁻")
+
+
+def pow10(e):
+    return "10" + str(int(e)).translate(SUP)
+
+
 def sci(x):
-    return "n/a" if pd.isna(x) else f"{x:.1e}".replace("e+", "e")
+    """3.2 × 10²⁴ style, for numbers too big to have a name."""
+    if pd.isna(x) or x <= 0:
+        return "n/a"
+    e = int(np.floor(np.log10(x)))
+    return f"{x / 10 ** e:.1f} × {pow10(e)}"
+
+
+def human(x, prefix=""):
+    """2.1 trillion / 340 million style."""
+    if pd.isna(x):
+        return "n/a"
+    for v, w in [(1e12, "trillion"), (1e9, "billion"), (1e6, "million"), (1e3, "thousand")]:
+        if abs(x) >= v:
+            return f"{prefix}{x / v:,.1f} {w}"
+    return f"{prefix}{x:,.0f}"
+
+
+def duration(minutes):
+    if minutes < 1:
+        return f"{minutes * 60:.0f} seconds"
+    if minutes < 60:
+        return f"{minutes:.0f} minutes"
+    return f"{minutes / 60:.1f} hours"
+
+
+def takeaway(html):
+    st.markdown(f'<div class="takeaway"><span class="lbl">Key point</span>{html.replace("$", "&#36;")}</div>',
+                unsafe_allow_html=True)
 
 
 def money(x):
@@ -148,7 +187,7 @@ def log_ticks(lo, hi):
     vals = list(range(int(np.floor(lo)), int(np.ceil(hi)) + 1))
     step = max(1, int(np.ceil(len(vals) / 6)))
     vals = vals[::step]
-    return vals, [f"1e{v}" for v in vals]
+    return vals, [pow10(v) for v in vals]
 
 
 def decimal_year(d):
@@ -261,6 +300,7 @@ def load_clusters():
     g["h100e"] = pd.to_numeric(g["H100 equivalents"], errors="coerce")
     g["power"] = pd.to_numeric(g["Power Capacity (MW)"], errors="coerce")
     g["Owner"] = g["Owner"].fillna("Undisclosed")
+    g["Country"] = g["Country"].replace({"United States of America": "United States"})
     g["Chip type (primary)"] = g["Chip type (primary)"].fillna("Undisclosed")
     return g
 
@@ -522,6 +562,20 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+with st.expander("New to these words? A 30-second glossary"):
+    st.markdown(
+        "- **Training compute**: how many calculations it took to train a model. More compute usually means "
+        "a more capable model. Written like 10²⁴ (a 1 with 24 zeros).\n"
+        "- **Parameters**: the numbers inside a model that it learns; a rough measure of its size.\n"
+        "- **H100-equivalent (H100e)**: computing power counted in Nvidia H100 chips, the standard AI chip, "
+        "so different chips can be added up.\n"
+        "- **Open weights**: the model file is published, so anyone can download and run it.\n"
+        "- **Log scale**: each step on the axis is 10× bigger than the one before. A straight line on a log "
+        "scale means the value multiplies by the same amount every year.\n"
+        "- **Capability index (ECI)**: Epoch AI's single score that combines many AI tests. Higher = more capable.\n"
+        "- **Benchmark**: a standard test for AI models, like an exam (science questions, coding tasks).\n"
+        "- **Annualized revenue**: a company's current monthly income × 12.")
+
 ss = st.session_state
 
 # ================================================================= SECTION 1: MODELS
@@ -551,9 +605,10 @@ if sec == "models":
         k3.metric("Largest training run", "n/a")
     else:
         top = fit.loc[fit["compute"].idxmax()]
-        k3.metric("Largest training run", f"{sci(top['compute'])} FLOP", top["Model"], delta_color="off")
+        k3.metric("Biggest training run", sci(top["compute"]), top["Model"], delta_color="off",
+                  help="Number of calculations used to train the biggest model in view.")
     dm = doubling(trend[0]) if trend is not None else None
-    k4.metric("Compute doubles every", f"{dm:.1f} months" if dm else "n/a",
+    k4.metric("Doubling time", f"{dm:.1f} months" if dm else "n/a",
               help="Log-linear fit of training compute against publication date, for the models in view.")
 
     if m.empty:
@@ -563,7 +618,7 @@ if sec == "models":
         a, b = st.columns(2)
         with a, card(1):
             card_title(1, "Line chart", "Language models took over from vision",
-                       "Notable models published per year, by domain")
+                       "each line counts the notable AI models released that year in one field.")
             years = range(int(m["year"].min()), int(m["year"].max()) + 1)
             order = [d for d in TOP_DOMAINS + ["Other"] if d in m["domain_g"].unique()]
             cnt = (m.groupby(["year", "domain_g"]).size().unstack(fill_value=0)
@@ -573,12 +628,18 @@ if sec == "models":
                           color_discrete_map=DOMAIN_COLORS, category_orders={"Domain": order})
             fig.update_traces(line_width=2, marker_size=6)
             fig.update_xaxes(title=None)
+            fig.update_yaxes(title="Models released")
             show(style(fig))
+            full = cnt.loc[[y for y in cnt.index if y < MAX_YEAR]] if len(cnt) > 1 else cnt
+            lead = full.iloc[-1].sort_values(ascending=False)
+            takeaway(f"In {full.index[-1]}, <b>{lead.index[0]}</b> led with {lead.iloc[0]} models"
+                     + (f", ahead of {lead.index[1]} with {lead.iloc[1]}." if len(lead) > 1 else "."))
 
         # ---- 2. STACKED BAR
         with b, card(2):
             card_title(2, "Stacked bar chart", "Who gets to use the models?",
-                       "Models per year, by how they were released")
+                       "each bar is one year; the colours show how the models were released "
+                       "(free to download, paid access, or kept private).")
             mode = st.segmented_control("Show as", ["Count", "Share of year"], default="Count",
                                         key="acc_mode", label_visibility="collapsed")
             acc = m.groupby(["year", "access"]).size().reset_index(name="Models")
@@ -591,14 +652,20 @@ if sec == "models":
             fig.update_traces(marker_line_color=SURFACE, marker_line_width=1.5)
             fig.update_layout(barmode="stack", bargap=0.15, barcornerradius=4)
             fig.update_xaxes(title=None)
-            show(style(fig, height=360))
+            show(style(fig, height=340))
+            yl = int(m["year"].max()) - (1 if m["year"].max() == MAX_YEAR and m["year"].nunique() > 1 else 0)
+            recent = m[(m["year"] == yl) & (m["access"] != "Unknown")]
+            if len(recent):
+                takeaway(f"In {yl}, <b>{(recent['access'] == 'Open weights').mean():.0%}</b> of models were "
+                         "released with open weights, meaning anyone could download them.")
 
         # ---- 3. BUBBLE SCATTER + TREND LINE
         with card(3):
             t1, t2 = st.columns([3, 1], vertical_alignment="bottom")
             with t1:
                 card_title(3, "Bubble scatter with trend line", "Training compute grows exponentially",
-                           "Each bubble is a model; bubble size = number of parameters (log scale)")
+                           "each bubble is one model. Higher = more calculations used to train it, and "
+                           "every step up the axis is 10× more. Bigger bubble = more parameters.")
             orgs = list(fit["Organization"].value_counts().index[:40])
             hl = t2.selectbox("Highlight an organization", ["None"] + orgs, key="hl_org")
             if fit.empty:
@@ -606,7 +673,7 @@ if sec == "models":
             else:
                 pts = fit.copy()
                 pts["size"] = np.log10(pts["params"].clip(lower=1)).fillna(3).clip(lower=3)
-                pts["Parameters"] = pts["params"].map(sci)
+                pts["Parameters"] = pts["params"].map(human)
                 pts["Compute"] = pts["compute"].map(sci)
                 fig = px.scatter(pts, x="date", y="compute", color="access", size="size", size_max=22,
                                  log_y=True, color_discrete_map=ACCESS_COLORS,
@@ -614,7 +681,8 @@ if sec == "models":
                                  hover_data={"Organization": True, "Compute": True, "Parameters": True,
                                              "date": "|%b %Y", "size": False, "compute": False,
                                              "access": True},
-                                 labels={"compute": "Training compute (FLOP)", "date": "", "access": "Access"})
+                                 labels={"compute": "Training compute (calculations)", "date": "",
+                                         "access": "Access"})
                 fig.update_traces(marker=dict(opacity=0.8, line=dict(width=1, color=SURFACE)))
                 if trend is not None:
                     fig.add_trace(trend_trace(trend, pts["dyear"]))
@@ -626,13 +694,19 @@ if sec == "models":
                                              marker=dict(size=14, color="rgba(0,0,0,0)",
                                                          line=dict(color=INK, width=2)),
                                              hoverinfo="skip"))
+                tv, tt = log_ticks(np.log10(pts["compute"].min()), np.log10(pts["compute"].max()))
+                fig.update_yaxes(tickvals=[10.0 ** v for v in tv], ticktext=tt)
                 show(style(fig, height=480))
+                if trend is not None and dm:
+                    takeaway(f"The dashed trend line grows <b>×{10 ** trend[0]:.1f} every year</b>: the compute "
+                             f"used to train AI models doubles about every <b>{dm:.1f} months</b>.")
 
         # ---- 4. DONUT  + 5. VIOLIN
         a, b = st.columns(2)
         with a, card(4):
             card_title(4, "Donut chart", "The US builds most notable models",
-                       "Share of models by the developer's country (top 5 + other)")
+                       "each slice is one country's share of the models in view (top 5, the rest grouped "
+                       "as Other).")
             order = [c for c in TOP_COUNTRIES + ["Other"] if c in m["country_g"].unique()]
             share = m["country_g"].value_counts().reindex(order).reset_index()
             share.columns = ["Country", "Models"]
@@ -648,10 +722,14 @@ if sec == "models":
             fig.update_layout(uniformtext_minsize=11, uniformtext_mode="hide",
                               legend=dict(orientation="v", x=1.0, y=0.5, yanchor="middle"))
             show(fig)
+            sh = m["country"].value_counts(normalize=True)
+            takeaway(f"<b>{sh.index[0]}</b> built {sh.iloc[0]:.0%} of these models"
+                     + (f", {sh.index[1]} {sh.iloc[1]:.0%}." if len(sh) > 1 else "."))
 
         with b, card(5):
             card_title(5, "Violin plot with box", "Industry trains the biggest models",
-                       "Distribution by organization type (log scale)")
+                       "the wider the shape, the more models of that size. The line in the box is the "
+                       "typical (median) model. Each step up = 10× bigger.")
             metric = st.segmented_control(
                 "Measure", ["Training compute (FLOP)", "Parameters", "Training cost (2023 USD)"],
                 default="Training compute (FLOP)", key="violin_metric",
@@ -663,7 +741,8 @@ if sec == "models":
                 nothing()
             else:
                 v["log"] = np.log10(v[col])
-                v["Value"] = v[col].map(sci)
+                v["Value"] = v[col].map(sci if col == "compute" else
+                                        (lambda x: human(x, "$")) if col == "cost" else human)
                 present = [o for o in ORG_ORDER + ["Unknown"] if o in v["org_type"].unique()]
                 fig = px.violin(v, x="org_type", y="log", color="org_type", box=True, points="outliers",
                                 color_discrete_map=ORG_COLORS | {"Unknown": OTHER},
@@ -675,7 +754,12 @@ if sec == "models":
                 fig.update_xaxes(tickangle=0, tickvals=present,
                                  ticktext=[p.replace(" + ", " +<br>").replace(" / ", " /<br>") for p in present])
                 fig.update_traces(meanline_visible=True, line_width=1.5)
-                show(style(fig, height=352, legend=False))
+                show(style(fig, height=330, legend=False))
+                med = v.groupby("org_type")[col].median()
+                if {"Industry", "Academia"} <= set(med.index) and med["Academia"] > 0:
+                    ratio = float(f"{med['Industry'] / med['Academia']:.2g}")
+                    takeaway(f"The typical industry model is about <b>{ratio:,.0f}× "
+                             f"bigger</b> than the typical university model on this measure.")
 
         table_and_download(
             m[["Model", "Organization", "Publication date", "domain", "country", "org_type", "access",
@@ -713,7 +797,8 @@ elif sec == "hardware":
     # ---- 6. SCATTER + TREND
     with card(6):
         card_title(6, "Scatter with trend line", "Each chip is faster, but only slowly",
-                   "Peak speed of every chip by release date (log scale)")
+                   "each dot is one chip, placed at its release date. Higher = faster, and every step up "
+                   "the axis is 10× faster. The dashed line is the average trend.")
         which = st.segmented_control("Precision", ["FP16 (AI training)", "FP32 (classic)"],
                                      default="FP16 (AI training)", key="chip_metric",
                                      label_visibility="collapsed") or "FP16 (AI training)"
@@ -723,35 +808,40 @@ elif sec == "hardware":
             nothing()
         else:
             pts["maker"] = np.where(pts["Manufacturer"].isin(CHIP_MAKERS), pts["Manufacturer"], "Other")
-            pts["TFLOP/s"] = (pts[col] / 1e12).map("{:,.1f}".format)
-            fig = px.scatter(pts, x="release", y=col, color="maker", log_y=True,
+            pts["speed"] = pts[col] / 1e12
+            pts["Speed"] = pts["speed"].map(lambda x: f"{x:,.1f} trillion calculations per second")
+            fig = px.scatter(pts, x="release", y="speed", color="maker", log_y=True,
                              color_discrete_map=CHIP_COLORS, category_orders={"maker": CHIP_MAKERS + ["Other"]},
                              hover_name="Hardware name",
-                             hover_data={"TFLOP/s": True, "maker": False, col: False, "release": "|%b %Y"},
-                             labels={col: f"{which.split(' ')[0]} speed (FLOP/s)", "release": ""})
+                             hover_data={"Speed": True, "maker": False, "speed": False, "release": "|%b %Y"},
+                             labels={"speed": "Speed (trillion calculations / sec)", "release": ""})
             fig.update_traces(marker=dict(size=9, opacity=0.85, line=dict(width=1, color=SURFACE)))
-            f = log_fit(pts["dyear"], pts[col])
+            f = log_fit(pts["dyear"], pts["speed"])
             if f is not None:
-                fig.add_trace(trend_trace(f, pts["dyear"], name=f"Trend: ×{10 ** f[0]:.2f} per year"))
-            fig.update_yaxes(dtick=1)
+                fig.add_trace(trend_trace(f, pts["dyear"], name="Average trend"))
+            ticks = [10.0 ** k for k in range(-3, 5)]
+            fig.update_yaxes(tickvals=ticks, ticktext=[f"{t:,g}" for t in ticks])
             show(style(fig, height=440))
+            if f is not None and f[0] > 0:
+                takeaway(f"A new chip is about <b>×{10 ** f[0]:.2f} faster</b> than one from a year before, so chip "
+                         f"speed doubles roughly every <b>{doubling(f[0]) / 12:.1f} years</b>. That is much "
+                         "slower than the growth of training compute in section 1.")
 
     # ---- 7. HEATMAP
     with card(7):
         card_title(7, "Heatmap", "Which chip specs move together?",
-                   "Correlation between hardware specs (log scale), for the chips in view")
+                   "blue = the two specs rise together, red = one rises while the other falls, "
+                   "pale = no link. The number goes from −1 to +1.")
         method = st.segmented_control("Correlation", ["Pearson", "Spearman"], default="Pearson",
                                       key="corr", label_visibility="collapsed") or "Pearson"
         cols = {
             "Release year": "year",
-            "FP32 perf": FP32,
-            "FP16 tensor perf": FP16,
-            "Memory": "Memory (bytes)",
-            "Bandwidth": "Memory bandwidth (byte/s)",
-            "Power (TDP)": "TDP (W)",
-            "Die size": "Die Size (mm^2)",
-            "Process (nm)": "Process size (nm)",
+            "AI speed": FP16,
+            "Memory size": "Memory (bytes)",
+            "Memory speed": "Memory bandwidth (byte/s)",
+            "Power use": "TDP (W)",
             "Transistors": "Transistors (millions)",
+            "Transistor size (nm)": "Process size (nm)",
             "Price": "Release price (USD)",
         }
         num = pd.DataFrame({k: pd.to_numeric(h[v], errors="coerce") for k, v in cols.items()})
@@ -762,12 +852,25 @@ elif sec == "hardware":
         if corr.shape[0] < 2:
             nothing()
         else:
-            fig = px.imshow(corr, text_auto=".2f", color_continuous_scale=DIVERGING, zmin=-1, zmax=1,
-                            aspect="auto")
-            fig.update_traces(hovertemplate="%{y} vs %{x}: %{z:.2f}<extra></extra>", textfont_size=11)
-            fig.update_layout(coloraxis_colorbar=dict(title="r", thickness=12))
-            show(style(fig, height=480))
-            st.caption(f"Based on {len(h)} chips. Pairs with fewer than 8 chips reporting both specs are left blank.")
+            z = corr.where(np.tril(np.ones(corr.shape, dtype=bool), k=-1)).iloc[1:, :-1]
+            text = z.apply(lambda c: c.map(lambda v: "" if pd.isna(v) else f"{v:.2f}"))
+            fig = go.Figure(go.Heatmap(z=z.values, x=list(z.columns), y=list(z.index), text=text.values,
+                                       texttemplate="%{text}", colorscale=DIVERGING, zmin=-1, zmax=1,
+                                       xgap=3, ygap=3, hoverongaps=False,
+                                       hovertemplate="%{y} and %{x}: %{z:.2f}<extra></extra>",
+                                       colorbar=dict(title="Link", thickness=12, tickvals=[-1, 0, 1],
+                                                     ticktext=["−1", "0", "+1"])))
+            fig.update_yaxes(autorange="reversed", showgrid=False)
+            fig.update_xaxes(showgrid=False, side="bottom")
+            show(style(fig, height=440))
+            pairs = z.stack().dropna()
+            pairs = pairs[[a != b for a, b in pairs.index]]
+            if len(pairs):
+                a, b = pairs.abs().idxmax()
+                val = pairs[(a, b)]
+                takeaway(f"Strongest link: <b>{a}</b> and <b>{b}</b> ({val:+.2f}). "
+                         + ("They go up together." if val > 0 else "When one goes up, the other goes down.")
+                         + f" Based on {len(h)} chips; pairs with too little data are left blank.")
 
     table_and_download(
         h[["Hardware name", "Manufacturer", "Type", "Release date", FP16, FP32, "Memory (bytes)",
@@ -787,7 +890,8 @@ elif sec == "infra":
     # ---- 8. STACKED AREA
     with card(8):
         card_title(8, "Stacked area chart", "The AI chip race, quarter by quarter",
-                   "Estimated AI chips shipped by designer (median estimate)")
+                   "each coloured band is one chip designer and the top edge is the total. Computing "
+                   "power is counted in Nvidia H100 chips so different chips can be added up.")
         t2, t3 = st.columns([5, 1], vertical_alignment="center")
         measure = t2.segmented_control(
             "Measure", ["Compute (H100-equivalents)", "Chips shipped", "Spend (billion USD)", "Power draw (MW)"],
@@ -812,6 +916,11 @@ elif sec == "infra":
             fig.update_traces(line_width=1.5, hovertemplate="%{fullData.name}: %{y:,.1f}<extra></extra>")
             fig.update_layout(hovermode="x unified")
             show(style(fig, height=420))
+            lq = pv.iloc[-1]
+            if lq.sum() > 0 and len(lq) > 1:
+                second = lq.drop(lq.idxmax())
+                takeaway(f"In {pv.index[-1]}, <b>{lq.idxmax()}</b> had {lq.max() / lq.sum():.0%} of the total, "
+                         f"followed by {second.idxmax()} with {second.max() / lq.sum():.0%}.")
             if q0 < QUARTERS.index("Q1 2024"):
                 st.caption("Before Q1 2024 the data covers only Nvidia (from 2022) and Google (from Q4 2022).")
 
@@ -828,7 +937,8 @@ elif sec == "infra":
 
     with card(9):
         card_title(9, "Bubble map", "Where the GPU clusters are",
-                   "AI supercomputers worldwide; bubble size = computing power in H100-equivalents (log scale)")
+                   "each bubble is one AI supercomputer; a bigger bubble means more computing power. "
+                   "Hover over a bubble to see its owner and size.")
         if g.empty:
             nothing()
         else:
@@ -850,12 +960,18 @@ elif sec == "infra":
                             showocean=True, oceancolor=SURFACE, showlakes=False, showframe=False,
                             coastlinecolor="#d9d8d3", bgcolor=SURFACE)
             show(style(fig, height=540), scroll_zoom=False)
+            by = g.groupby("Country")["h100e"].sum().sort_values(ascending=False)
+            takeaway(f"<b>{by.index[0]}</b> has {by.iloc[0] / by.sum():.0%} of the computing power on this map"
+                     + (f", then {by.index[1]} with {by.iloc[1] / by.sum():.0%}." if len(by) > 1 else ".")
+                     + ("" if ss.c_anon else " China's 190 anonymized systems are hidden; switch them on in the "
+                        "sidebar."))
 
     # ---- 10. TREEMAP
     d = dcs[dcs["Country"].isin(ss.d_country)] if ss.d_country else dcs
     with card(10):
         card_title(10, "Treemap", "The mega data centers, and who owns them",
-                   "Each box is a data center, grouped by owner; darker = more expensive per H100-equivalent")
+                   "each box is one data center, grouped by owner. A bigger box means more computing power "
+                   "(or electricity or cost, with the buttons). The % is its share of the total.")
         size_by = st.segmented_control("Box size", ["Computing power", "Power (MW)", "Cost (USD)"],
                                        default="Computing power", key="dc_size",
                                        label_visibility="collapsed") or "Computing power"
@@ -864,22 +980,18 @@ elif sec == "infra":
         if d.empty:
             nothing()
         else:
-            d["cost_per"] = d["capex"] * 1e9 / d["h100e"] / 1000
             d["Compute"] = d["h100e"].map(lambda x: f"{x / 1000:,.0f}k H100e")
             d["Power"] = d["power"].map(lambda x: f"{x:,.0f} MW")
             d["Cost"] = d["capex"].map(lambda x: f"${x:,.1f}B")
             fig = px.treemap(d, path=[px.Constant("All data centers"), "Owner", "Name"], values=scol,
-                             color="cost_per", color_continuous_scale=SEQUENTIAL,
-                             range_color=[d["cost_per"].quantile(0.05), d["cost_per"].quantile(0.95)],
-                             hover_data={"Compute": True, "Power": True, "Cost": True, "Country": True},
-                             labels={"cost_per": "$k per H100e"})
+                             color_discrete_sequence=[S[0]],
+                             hover_data={"Compute": True, "Power": True, "Cost": True, "Country": True})
             fig.update_traces(marker=dict(line=dict(color=SURFACE, width=2)), root_color="#f0efec",
-                              texttemplate="<b>%{label}</b>", tiling=dict(pad=2))
-            fig.update_layout(coloraxis_colorbar=dict(title="$k per<br>H100e", thickness=12))
+                              texttemplate="<b>%{label}</b><br>%{percentRoot:.0%}", tiling=dict(pad=2))
             show(style(fig, height=520))
-            top3 = d.groupby("Owner")["h100e"].sum().sort_values(ascending=False)
-            st.caption(f"{len(d)} data centers. The biggest owners by computing power: "
-                       + ", ".join(f"{o} ({v / 1e6:.1f}M H100e)" for o, v in top3.head(3).items()) + ".")
+            own = d.groupby("Owner")[scol].sum().sort_values(ascending=False)
+            takeaway(f"Across {len(d)} data centers, the biggest owners by {size_by.lower()} are "
+                     + ", ".join(f"<b>{o}</b> ({v / own.sum():.0%})" for o, v in own.head(3).items()) + ".")
 
     table_and_download(
         g[["Name", "Owner", "Country", "Sector", "GPU Supplier (primary)", "Chip type (primary)",
@@ -906,7 +1018,8 @@ elif sec == "payoff":
     k1, k2, k3, k4 = st.columns(4)
     if len(e):
         top = e.loc[e["eci"].idxmax()]
-        k1.metric("Most capable model", f"{top['eci']:.0f} ECI", top["Display name"], delta_color="off")
+        k1.metric("Most capable model", f"{top['eci']:.0f} points", top["Display name"], delta_color="off",
+                  help="Score on Epoch AI's Capabilities Index, which combines many AI tests.")
     else:
         k1.metric("Most capable model", "n/a")
     k2.metric("China's gap to US", f"{gap:.0f} months" if gap is not None else "n/a",
@@ -920,7 +1033,8 @@ elif sec == "payoff":
     # ---- 11. CAPABILITY SCATTER + FRONTIER
     with a, card(11):
         card_title(11, "Scatter with frontier lines", "US vs China: the capability race",
-                   "Epoch Capabilities Index of each model; lines show each country's best so far")
+                   "each dot is one model's capability score (higher = more capable). The step lines show "
+                   "the best US and Chinese model so far.")
         if e.empty:
             nothing()
         else:
@@ -928,7 +1042,7 @@ elif sec == "payoff":
                              category_orders={"region": REGIONS}, hover_name="Display name",
                              hover_data={"Organization": True, "Accessibility group": True, "region": False,
                                          "eci": ":.0f", "date": "|%b %Y"},
-                             labels={"eci": "Capability index (ECI)", "date": "", "region": "Country"})
+                             labels={"eci": "Capability score", "date": "", "region": "Country"})
             fig.update_traces(marker=dict(size=8, opacity=0.55, line=dict(width=1, color=SURFACE)))
             for reg, part in [("United States", us), ("China", cn)]:
                 if len(part):
@@ -940,11 +1054,15 @@ elif sec == "payoff":
                                              name=f"{reg} best", line=dict(color=REGION_COLORS[reg], width=2.5),
                                              hoverinfo="skip"))
             show(style(fig, height=430))
+            if gap is not None:
+                takeaway(f"China's best model scores {cn['eci'].max():.0f}. The US first reached that score about "
+                         f"<b>{gap:.0f} months earlier</b>, so China is roughly {gap:.0f} months behind.")
 
     # ---- 12. TASK LENGTH
     with b, card(12):
         card_title(12, "Scatter with trend line (log scale)", "AI can do longer and longer tasks alone",
-                   "How long a task (for a human expert) each model finishes half the time")
+                   "how long a task the AI can finish on its own (half of the time), measured by how long "
+                   "it takes a human expert. Every step up = 10× longer.")
         mm = metr.copy()
         mm["Task length"] = mm["Time horizon"].map(
             lambda x: f"{x * 60:.0f} sec" if x < 1 else f"{x:.0f} min" if x < 60 else f"{x / 60:.1f} hours")
@@ -968,11 +1086,18 @@ elif sec == "payoff":
             fig.add_annotation(x=r["date"], y=np.log10(r["Time horizon"]), text=name.split("_")[0],
                                showarrow=False, xanchor="right", xshift=-8, font=dict(size=11, color=INK))
         show(style(fig, height=430))
+        first = mm.sort_values("date").iloc[0]
+        best = mm.loc[mm["Time horizon"].idxmax()]
+        takeaway(f"From <b>{duration(first['Time horizon'])}</b> ({first['Model version'].split('_')[0]}, "
+                 f"{first['date']:%Y}) to <b>{duration(best['Time horizon'])}</b> "
+                 f"({best['Model version'].split('_')[0]}, {best['date']:%Y})"
+                 + (f". The task length doubles about every {doubling(mt[0]):.0f} months." if mt is not None else "."))
 
     # ---- 13. BENCHMARK RACE
     with card(13):
         card_title(13, "Step line chart", "New tests get beaten faster and faster",
-                   "Best score so far on each benchmark (record-setting models marked)")
+                   "each line is one test. It steps up whenever a new model sets a record; a line near "
+                   "100% means the test is basically solved. Dots mark the record-setting models.")
         bsel = ss.p_bench or BENCH_NAMES
         bb = bench[bench["Benchmark"].isin(bsel)].sort_values("date")
         if bb.empty:
@@ -995,15 +1120,26 @@ elif sec == "payoff":
                                          marker=dict(size=8, color=BENCH_COLORS[name], line=dict(width=1, color=SURFACE)),
                                          hovertemplate=f"<b>{name}</b><br>%{{customdata[0]}}<br>"
                                                        "%{y:.1f}% · %{x|%b %Y}<extra></extra>"))
-            fig.update_yaxes(title="Best score (%)", range=[0, 102])
+            fig.update_yaxes(title="Best score so far (%)", range=[0, 102])
             show(style(fig, height=430))
+            climbs = []
+            for name in [n for n in BENCH_NAMES if n in bsel]:
+                part = bb[bb["Benchmark"] == name].sort_values("date")
+                if len(part) > 1:
+                    top_row = part.loc[part["score"].idxmax()]
+                    yrs = max((top_row["date"] - part["date"].iloc[0]).days / 365.25, 0.25)
+                    climbs.append((name, part["score"].iloc[0], top_row["score"], yrs))
+            if climbs:
+                n, a, b, yrs = max(climbs, key=lambda c: (c[2] - c[1]) / c[3])
+                takeaway(f"Fastest climb: <b>{n}</b> went from {a:.0f}% to {b:.0f}% in about {yrs:.1f} years.")
 
     # ---- 14. REVENUE RACE
     with card(14):
         t1, t2 = st.columns([4, 1], vertical_alignment="bottom")
         with t1:
             card_title(14, "Line chart", "The money race: AI company revenue",
-                       "Annualized revenue (yearly run rate) reported for each company")
+                       "each line is one company's yearly revenue rate (its monthly income × 12). Add "
+                       "companies in the sidebar and switch on log scale to see the smaller ones.")
         logy = t2.toggle("Log scale", value=False, key="rev_log")
         rv = revenue[revenue["Company"].isin(ss.p_companies or COMPANIES)].copy()
         if rv.empty:
@@ -1020,8 +1156,8 @@ elif sec == "payoff":
             fig.update_yaxes(tickprefix="$")
             show(style(fig, height=420))
             last = rv.groupby("Company").tail(1).sort_values("Annualized revenue (USD)", ascending=False)
-            st.caption("Latest: " + ", ".join(
-                f"{c} {money(v).replace('$', r'\$')} ({d:%b %Y})"
+            takeaway("Latest reported: " + ", ".join(
+                f"<b>{c}</b> {money(v)} a year ({d:%b %Y})"
                 for c, v, d in zip(last["Company"], last["Annualized revenue (USD)"], last["date"])) + ".")
 
     with st.expander("View and download the filtered data"):
@@ -1073,7 +1209,8 @@ else:
     # ---- 15. GROWTH COMPARISON
     with card(15):
         card_title(15, "Horizontal bar chart (log scale)", "Everything grows, but not at the same speed",
-                   "Average growth per year, from a trend line fitted to each dataset")
+                   "each bar shows how many times bigger something gets every year (×2 = doubles every "
+                   "year). Colours: what drives AI vs the results it brings.")
         gplot = gr.copy()
         gplot["label"] = gplot["name"] + "  (" + gplot["period"] + ")"
         gplot["text"] = gplot["per_year"].map(lambda x: f"×{x:.2f}" if x < 2 else f"×{x:.1f}")
