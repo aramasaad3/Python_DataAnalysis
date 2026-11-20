@@ -1,0 +1,185 @@
+/* ==========================================================================
+   Steam Games Analysis - dashboard styling
+   Dash loads every file in the assets/ folder automatically.
+   Type: Source Serif 4 (headlines), IBM Plex Sans (text), IBM Plex Mono (numbers, labels)
+   ========================================================================== */
+:root {
+  --ink: #1d2433; --ink-2: #5b6474; --ink-3: #8a919e;
+  --rule: #e4e2dc; --paper: #f6f5f1; --card: #ffffff;
+  --navy: #0b2540; --blue: #0072B2;
+  --good: #00704f; --warn: #a86400; --bad: #b0413e; --accent: #1b9e77;
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+  --sans: "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
+  --mono: "IBM Plex Mono", Menlo, Consolas, monospace;
+  /* Dash 4 control colours (sliders, checkboxes, dropdowns) */
+  --Dash-Fill-Interactive-Strong: #1d2433; --Dash-Fill-Interactive-Weak: #e4e2dc;
+  --Dash-Fill-Primary-Hover: #0b2540; --Dash-Fill-Primary-Active: #0b2540;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--sans); font-size: 14px;
+       -webkit-font-smoothing: antialiased; }
+
+/* ---------- Header ---------- */
+.header { background: var(--navy); color: white; border-bottom: 3px solid var(--accent); }
+.header-inner { padding: 26px 32px 28px; max-width: 1100px; animation: rise .5s ease-out both; }
+.kicker { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px;
+          letter-spacing: .08em; text-transform: uppercase; color: #9fb3c8; }
+.header h1 { font-family: var(--serif); font-weight: 600; font-size: 40px; line-height: 1.1; margin: 10px 0 8px;
+             letter-spacing: -.01em; }
+.standfirst { margin: 0; max-width: 760px; font-size: 16px; line-height: 1.55; color: #c9d6e3; }
+
+/* ---------- Layout ---------- */
+.body { display: flex; align-items: flex-start; }
+.main { flex: 1; min-width: 0; padding: 22px 28px 12px; }
+
+/* ---------- Sidebar ---------- */
+.sidebar { width: 290px; flex-shrink: 0; background: var(--card); border-right: 1px solid var(--rule);
+           padding: 20px 22px; position: sticky; top: 0; height: 100vh; overflow-y: auto; }
+.side-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: 12px;
+             border-bottom: 1.5px solid var(--ink); }
+.side-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 15px; }
+.filter { padding: 14px 0 12px; border-bottom: 1px solid var(--rule); }
+.filter label { display: flex; align-items: center; gap: 7px; margin-bottom: 9px; font-family: var(--mono);
+                font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+#reset { margin-top: 18px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+         padding: 9px; font-family: var(--sans); font-weight: 600; font-size: 13.5px; color: var(--ink);
+         background: var(--card); border: 1px solid var(--ink); border-radius: 4px; cursor: pointer;
+         transition: background .15s, color .15s; }
+#reset:hover { background: var(--ink); color: white; }
+.small { font-size: 12px; color: var(--ink-3); line-height: 1.5; }
+
+/* ---------- Key numbers ---------- */
+.kpis { display: grid; grid-template-columns: repeat(6, 1fr); background: var(--card); border: 1px solid var(--rule);
+        border-radius: 4px; }
+.kpi { padding: 14px 18px 14px; border-left: 1px solid var(--rule); animation: rise .45s ease-out both; }
+.kpi:first-child { border-left: none; }
+.kpi:nth-child(2) { animation-delay: .05s } .kpi:nth-child(3) { animation-delay: .10s }
+.kpi:nth-child(4) { animation-delay: .15s } .kpi:nth-child(5) { animation-delay: .20s }
+.kpi:nth-child(6) { animation-delay: .25s }
+.kpi-label { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 11px;
+             letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); }
+.kpi-value { font-family: var(--mono); font-size: 27px; font-weight: 500; letter-spacing: -.02em; margin: 6px 0 2px;
+             font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi-value.good { color: var(--good); } .kpi-value.warn { color: var(--warn); } .kpi-value.bad { color: var(--bad); }
+.kpi-note { font-size: 12px; color: var(--ink-3); }
+
+/* ---------- Tabs (underline) ---------- */
+.tabs { margin-top: 22px; border-bottom: 1px solid var(--rule) !important; display: flex; flex-wrap: wrap; }
+.tab { flex: 0 0 auto !important; background: transparent !important; border: none !important;
+       border-bottom: 2px solid transparent !important; padding: 10px 14px 9px !important; margin-bottom: -1px;
+       font-family: var(--sans); font-weight: 500; font-size: 14px; color: var(--ink-2) !important;
+       transition: color .15s, border-color .2s !important; white-space: pre; }
+.tab:hover { color: var(--ink) !important; }
+.tab--selected { color: var(--ink) !important; border-bottom: 2px solid var(--ink) !important; font-weight: 600; }
+
+/* ---------- Content ---------- */
+.grid { display: grid; grid-template-columns: 1fr; gap: 22px; margin-top: 20px; counter-reset: fig; }
+.wide { grid-column: 1 / -1; }
+
+.lede { padding: 4px 0 6px; }
+.lede-q { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase;
+          color: var(--accent); }
+
+.section { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 14px; border-top: 1.5px solid var(--ink);
+           font-family: var(--serif); font-weight: 600; font-size: 21px; }
+
+.card { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 12px 12px 10px;
+        min-width: 0; counter-increment: fig; transition: border-color .2s; }
+.card:hover { border-color: #c9c6bd; }
+.card-top { display: flex; gap: 8px; align-items: baseline; padding: 0 6px 2px; font-family: var(--mono);
+            font-size: 11.5px; letter-spacing: .05em; text-transform: uppercase; }
+.fig-no::before { content: "Fig. " counter(fig); color: var(--ink); font-weight: 600; }
+.fig-kind { color: var(--ink-3); }
+.fig-kind::before { content: "/ "; }
+/* ---------- The 3 answer boxes under every chart ---------- */
+.answers { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; margin: 12px 6px 4px; }
+@media (max-width: 1000px) { .answers { grid-template-columns: 1fr; } }
+.answer { padding: 12px 15px 13px; border-radius: 4px; border: 1px solid var(--rule); border-top-width: 4px; }
+.card .answer h4 { margin: 0 0 6px; font-family: var(--mono); font-size: 11.5px; font-weight: 700;
+                   letter-spacing: .05em; text-transform: uppercase; }
+.answer p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--ink); }
+.answer.chose  { background: #eef7f2; border-top-color: #009E73; }
+.answer.chose h4 { color: #00704f; }
+.answer.others { background: #fbf0ea; border-top-color: #D55E00; }
+.answer.others h4 { color: #a8460b; }
+.answer.also   { background: #edf4fa; border-top-color: #0072B2; }
+.answer.also h4 { color: #005a8c; }
+.card h4 { margin: 8px 8px 10px; font-weight: 600; font-size: 14.5px; }
+.wordcloud { width: 100%; max-width: 1000px; display: block; margin: 0 auto; }
+
+/* ---------- Root cause tab ---------- */
+.rootcause { background: var(--card); border: 1px solid var(--rule); border-left: 4px solid var(--accent);
+             padding: 20px 26px 22px; }
+.rootcause-text { font-family: var(--serif); font-size: 24px; line-height: 1.4; margin: 10px 0 0; max-width: 1000px; }
+.findings, .recs { margin: 0; padding: 0; list-style: none; counter-reset: item; display: grid;
+                   grid-template-columns: 1fr 1fr; gap: 0 28px; }
+.findings li, .recs li { counter-increment: item; position: relative; padding: 13px 0 13px 44px;
+                         border-bottom: 1px solid var(--rule); font-size: 14.5px; line-height: 1.5;
+                         animation: rise .4s ease-out both; }
+.findings li::before, .recs li::before { content: counter(item, decimal-leading-zero); position: absolute; left: 0;
+                                         top: 13px; font-family: var(--mono); font-size: 13px; color: var(--ink-3); }
+.recs li::before { color: var(--good); font-weight: 600; }
+.findings li:nth-child(2), .recs li:nth-child(2) { animation-delay: .05s }
+.findings li:nth-child(3), .recs li:nth-child(3) { animation-delay: .10s }
+.findings li:nth-child(4), .recs li:nth-child(4) { animation-delay: .15s }
+.findings li:nth-child(5), .recs li:nth-child(5) { animation-delay: .20s }
+.findings li:nth-child(6), .recs li:nth-child(6) { animation-delay: .25s }
+.findings li:nth-child(7) { animation-delay: .30s }
+.footer { margin-top: 28px; padding: 16px 0 6px; border-top: 1px solid var(--rule); font-size: 12px; color: var(--ink-3); }
+
+/* ---------- Motion: content rises in, charts draw from left to right ---------- */
+.grid > * { animation: rise .45s ease-out both; }
+.grid > *:nth-child(2) { animation-delay: .06s } .grid > *:nth-child(3) { animation-delay: .12s }
+.grid > *:nth-child(4) { animation-delay: .18s } .grid > *:nth-child(5) { animation-delay: .24s }
+.grid > *:nth-child(6) { animation-delay: .30s } .grid > *:nth-child(7) { animation-delay: .36s }
+.grid > *:nth-child(n+8) { animation-delay: .42s }
+.card .dash-graph { animation: draw .9s .2s cubic-bezier(.25, .8, .25, 1) both; }
+
+@keyframes rise { from { opacity: 0; transform: translateY(10px) } to { opacity: 1; transform: none } }
+@keyframes draw { from { clip-path: inset(0 100% 0 0) } to { clip-path: inset(0 0 0 0) } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+
+/* ---------- Smaller screens ---------- */
+@media (max-width: 1250px) { .kpis { grid-template-columns: repeat(3, 1fr); }
+                             .kpi:nth-child(4) { border-left: none; }
+                             .kpi:nth-child(n+4) { border-top: 1px solid var(--rule); } }
+@media (max-width: 1000px) {
+  .body { flex-direction: column; }
+  .sidebar { width: 100%; height: auto; position: static; }
+  .grid, .findings, .recs { grid-template-columns: 1fr; }
+}
+
+/* Plotly drag-to-zoom: a light wash outside the selection instead of Plotly's dark grey */
+.js-plotly-plot .zoombox { fill: rgba(246, 245, 241, 0.72) !important; }
+
+/* ==========================================================================
+   Additions for the Steam "why do games fail" story
+   ========================================================================== */
+.fig-num { color: var(--ink); font-weight: 600; }
+.card-q { font-family: var(--serif) !important; font-size: 21px !important; font-weight: 600 !important;
+          margin: 6px 6px 4px !important; }
+.how { margin: 0 6px 6px; font-size: 13.5px; line-height: 1.55; color: var(--ink-2); max-width: 1000px; }
+.how b { color: var(--ink); }
+.keypoint { margin: 8px 6px 2px; padding: 10px 16px; background: #f1f8f5; border-left: 4px solid var(--accent);
+            display: flex; gap: 12px; align-items: baseline; }
+.kp-label { flex: none; font-family: var(--mono); font-size: 11px; font-weight: 700; letter-spacing: .06em;
+            text-transform: uppercase; color: var(--good); }
+.md p { margin: 0; font-size: 15px; line-height: 1.5; }
+.lede-sub { margin: 4px 0 0; color: var(--ink-2); font-size: 15px; }
+.problem { display: flex; gap: 22px; align-items: center; background: var(--card); border: 1px solid var(--rule);
+           border-left: 4px solid var(--bad); padding: 18px 24px; }
+.problem-big { font-family: var(--mono); font-size: 56px; font-weight: 500; color: var(--bad); line-height: 1; }
+.problem-text { font-family: var(--serif); font-size: 22px; line-height: 1.35; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.tile { background: var(--card); border: 1px solid var(--rule); border-radius: 4px; padding: 16px 18px; }
+.tile-big { font-family: var(--mono); font-size: 30px; font-weight: 500; color: var(--ink); }
+.tile-title { font-family: var(--serif); font-size: 19px; font-weight: 600; margin: 4px 0 2px; }
+.tile-desc { font-size: 13.5px; color: var(--ink-2); line-height: 1.45; }
+.radios label { display: flex !important; text-transform: none !important; font-family: var(--sans) !important;
+                font-size: 13.5px !important; letter-spacing: 0 !important; color: var(--ink) !important;
+                margin-bottom: 6px !important; gap: 8px; }
+.findings .md p, .recs .md p { font-size: 14.5px; }
+.lede-q { font-size: 13px !important; }

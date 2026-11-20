@@ -1,307 +1,288 @@
 """
-STEP 4 - THE DASHBOARD  (run:  python -m streamlit run app.py)
+STEP 4 - THE DASHBOARD  (Dash + Plotly)      Run:  python app.py   then open http://127.0.0.1:8050
 
-Builds the web page: the sidebar filters, the sections, and the cards around each chart.
-All numbers come from analysis.py and all charts from charts.py.
+Blocks: 1 data, 2 building blocks, 3 page layout, 4 one function per tab, 5 callbacks, 6 start.
+All numbers come from analysis.py, all charts from charts.py, the design from assets/style.css.
+
+How the filters work: every filter is an Input of the same two callbacks (update_kpis and update_tab).
+When any filter changes, Dash filters the games ONCE and redraws the key numbers and EVERY chart of
+the open tab with that same selection.
 """
-import numpy as np
-import streamlit as st
+from dash import Dash, Input, Output, dcc, html
 
 import analysis as A
 import charts as C
 
-st.set_page_config(page_title="Why Steam games fail", page_icon="🎮", layout="wide",
-                   initial_sidebar_state="expanded")
-
-# ---------------------------------------------------------------- page style
-st.markdown("""<style>
-.stApp {background: #0f1923;}
-.block-container {padding-top: 2.6rem; padding-bottom: 3rem; max-width: 1340px;}
-section[data-testid="stSidebar"] {background: #121c27; border-right: 1px solid #22313f;}
-section[data-testid="stSidebar"] .block-container {padding-top: 1.2rem;}
-h1, h2, h3, h4 {color: #e6edf3;}
-
-.brand {display:flex; gap:12px; align-items:center; margin-bottom:6px;}
-.brand .logo {width:42px; height:42px; border-radius:10px; display:grid; place-items:center; font-size:22px;
-              background: linear-gradient(135deg, #66c0f4, #1b4d7a);}
-.brand .name {font-weight:700; color:#e6edf3; font-size:1.05rem; line-height:1.2;}
-.brand .sub {color:#93a7ba; font-size:.78rem;}
-.label {font-size:.72rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#93a7ba; margin:8px 0 2px;}
-.badge {display:inline-block; margin-left:6px; padding:2px 9px; border-radius:99px; font-size:.72rem; font-weight:600;
-        background:#1d3a55; color:#9fd7f7; letter-spacing:0; text-transform:none;}
-.badge.off {background:#1b2733; color:#93a7ba;}
-.foot {font-size:.75rem; color:#7f93a6; line-height:1.5;}
-
-.hero {border-radius:18px; padding:28px 32px; margin-bottom:16px; border:1px solid #22384d;
-       background: radial-gradient(900px 260px at 90% -30%, rgba(102,192,244,.35), rgba(102,192,244,0) 60%),
-                   linear-gradient(135deg, #171a21 0%, #1b2838 55%, #2a475e 100%);}
-.hero .eyebrow {font-size:.74rem; letter-spacing:.16em; text-transform:uppercase; color:#66c0f4; font-weight:700;}
-.hero h1 {font-size:2.5rem; margin:.3rem 0 .4rem; padding:0; letter-spacing:-.02em;}
-.hero p {color:#b8c7d6; margin:0 0 14px; font-size:1rem;}
-.chip {display:inline-block; padding:5px 12px; margin:0 6px 6px 0; border-radius:99px; font-size:.8rem;
-       background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.14); color:#dbe6f0;}
-
-[data-testid="stMetric"] {background:#16222e; border:1px solid #22313f; border-radius:14px; padding:14px 16px;}
-[data-testid="stMetricLabel"] p {font-size:.74rem; text-transform:uppercase; letter-spacing:.08em; color:#93a7ba;}
-[data-testid="stMetricValue"] {font-size:1.65rem; font-weight:700; color:#e6edf3;}
-
-.sec {margin: 18px 0 12px;}
-.sec .num {font-size:.74rem; letter-spacing:.14em; text-transform:uppercase; color:#66c0f4; font-weight:700;}
-.sec h2 {font-size:1.7rem; margin:.15rem 0 .2rem; padding:0;}
-.sec p {color:#93a7ba; margin:0;}
-
-[class*="st-key-card"] {background:#16222e; border:1px solid #22313f !important; border-radius:16px;}
-.tag {display:inline-block; font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase;
-      color:#9fd7f7; background:#1d3a55; padding:3px 9px; border-radius:6px; margin-bottom:8px;}
-.ftitle {font-size:1.15rem; font-weight:700; color:#e6edf3;}
-.how {font-size:.88rem; color:#93a7ba; margin-top:4px; line-height:1.45;}
-.how b {color:#cfdbe6;}
-.key {background:#1d3a55; border-radius:10px; padding:10px 14px; color:#e6edf3; font-size:.93rem; line-height:1.5;}
-.key .k {font-size:.68rem; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#9fd7f7; margin-right:8px;}
-.why {font-size:.8rem; color:#7f93a6; margin-top:6px; font-style:italic;}
-
-.panel {background:#16222e; border:1px solid #22313f; border-radius:16px; padding:18px 20px; height:100%;}
-.panel .big {font-size:2.2rem; font-weight:800; color:#e6edf3; line-height:1.1;}
-.panel .t {font-weight:700; color:#e6edf3; font-size:1.02rem; margin:.3rem 0 .2rem;}
-.panel .d {color:#93a7ba; font-size:.9rem; line-height:1.45;}
-.dot {display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:middle;}
-.problem {background: linear-gradient(135deg, #3a1e26, #1b2838); border:1px solid #5a2c36; border-radius:16px;
-          padding:22px 26px; margin-bottom:14px;}
-.problem .big {font-size:3.2rem; font-weight:800; color:#ff8080; line-height:1;}
-.problem .d {color:#e6edf3; font-size:1.05rem; margin-top:6px;}
-</style>""", unsafe_allow_html=True)
+# =============================================================================
+# 1. THE DATA
+# =============================================================================
+df = A.load_games()
+YEARS = [int(df["year"].min()), int(df["year"].max())]
+PLATFORMS = ["All", "Windows only", "Has a Mac version", "Has a Linux version"]
+PUBLISHERS = ["All", "Self-published", "Has a publisher"]
 
 
-@st.cache_data
-def games():
-    return A.load_games()
+def selection(genre, price, years, platform, publisher):
+    """The one place where the 5 filters are turned into the games every chart uses."""
+    return A.apply_filters(df, years or YEARS, genre or [], price or [], platform or "All", publisher or "All")
 
 
-df_all = games()
-
-# ---------------------------------------------------------------- filters (one panel for every chart)
-DEFAULTS = {"f_years": (2006, 2024), "f_genres": [], "f_prices": list(A.PRICE_BANDS),
-            "f_platform": "All", "f_publisher": "All"}
-for k, v in DEFAULTS.items():
-    st.session_state.setdefault(k, list(v) if isinstance(v, list) else v)
-
-
-def reset_filters():
-    for k, v in DEFAULTS.items():
-        st.session_state[k] = list(v) if isinstance(v, list) else v
+# =============================================================================
+# 2. BUILDING BLOCKS
+# =============================================================================
+def markdown(text):
+    """analysis.py writes <b>bold</b>; Dash shows Markdown, so we turn it into **bold**."""
+    return dcc.Markdown(text.replace("<b>", "**").replace("</b>", "**"), className="md")
 
 
-def active_filters():
-    ss = st.session_state
-    return sum([ss.f_years != DEFAULTS["f_years"], bool(ss.f_genres),
-                set(ss.f_prices or A.PRICE_BANDS) != set(A.PRICE_BANDS),
-                ss.f_platform != "All", ss.f_publisher != "All"])
+def card(num, fig, key_point):
+    """A white card: Fig. number + chart type, the question, how to read it, the chart, the key point,
+    then 3 boxes: why we chose this chart, why not another, and another chart that would also fit."""
+    kind, question, how, why, why_not, also = C.CHART_INFO[num]
+    return html.Div([
+        html.Div([html.Span(f"Fig. {num}", className="fig-num"), html.Span(kind, className="fig-kind")],
+                 className="card-top"),
+        html.H4(question, className="card-q"),
+        html.P([html.B("How to read: "), how], className="how"),
+        # a fixed height, otherwise the chart stretches to the height of the browser window
+        dcc.Graph(figure=fig, config={"displaylogo": False, "scrollZoom": False},
+                  style={"height": f"{fig.layout.height or 440}px"}),
+        html.Div([html.Span("Key point", className="kp-label"), markdown(key_point)], className="keypoint"),
+        html.Div([
+            html.Div([html.H4("Why we chose this chart"), html.P(why)], className="answer chose"),
+            html.Div([html.H4("Why we did not choose others"), html.P(why_not)], className="answer others"),
+            html.Div([html.H4("Another chart that would also fit"), html.P(also)], className="answer also"),
+        ], className="answers"),
+    ], className="card")
 
 
-SECTIONS = {
-    "overview": ("Overview", "The problem, the data, the brief"),
-    "when": ("01 · When?", "Is Steam too crowded?"),
-    "what": ("02 · What?", "Which games succeed?"),
-    "who": ("03 · Who?", "Who wins on Steam?"),
-    "why": ("04 · Why?", "The root cause"),
-    "fix": ("05 · What to do", "Advice for the studio"),
-}
-
-with st.sidebar:
-    st.markdown('<div class="brand"><div class="logo">🎮</div><div><div class="name">Steam Games</div>'
-                '<div class="sub">Why do most games fail?</div></div></div>', unsafe_allow_html=True)
-    st.markdown('<div class="label">Sections</div>', unsafe_allow_html=True)
-    sec = st.radio("Section", list(SECTIONS), key="section", label_visibility="collapsed",
-                   format_func=lambda k: SECTIONS[k][0], captions=[v[1] for v in SECTIONS.values()])
-    st.divider()
-    n = active_filters()
-    c1, c2 = st.columns([3, 2], vertical_alignment="center")
-    c1.markdown(f'<div class="label" style="margin:0">Filters<span class="badge {"" if n else "off"}">{n} active</span></div>',
-                unsafe_allow_html=True)
-    c2.button("Reset", on_click=reset_filters, disabled=n == 0, icon=":material/restart_alt:", width="stretch")
-    st.caption("Every filter changes every chart and number on every page.")
-    st.slider("Release year", 2006, 2024, key="f_years")
-    st.multiselect("Genre", A.GENRES, key="f_genres", placeholder="All genres")
-    st.pills("Price", A.PRICE_BANDS, selection_mode="multi", key="f_prices")
-    st.segmented_control("Platform", ["All", "Windows only", "Has a Mac version", "Has a Linux version"],
-                         key="f_platform")
-    st.segmented_control("Publisher", ["All", "Self-published", "Has a publisher"], key="f_publisher")
-    st.divider()
-    st.markdown('<div class="foot">Data: Steam Games Dataset (FronkonGames, Kaggle), collected from the Steam '
-                'store and SteamSpy. Owner numbers are estimates.<br>Built with pandas, NumPy, Plotly and '
-                'Streamlit.</div>', unsafe_allow_html=True)
-
-ss = st.session_state
-df = A.apply_filters(df_all, ss.f_years, ss.f_genres, ss.f_prices or A.PRICE_BANDS,
-                     ss.f_platform or "All", ss.f_publisher or "All")
+def kpi(label, value, note, tone=""):
+    return html.Div([html.Div(label, className="kpi-label"), html.Div(value, className="kpi-value " + tone),
+                     html.Div(note, className="kpi-note")], className="kpi")
 
 
-# ---------------------------------------------------------------- building blocks
-def section(num, title, question):
-    st.markdown(f'<div class="sec"><div class="num">{num}</div><h2>{title}</h2><p>{question}</p></div>',
-                unsafe_allow_html=True)
+def heading(question, sub=""):
+    return html.Div([html.H2(question, className="lede-q"), html.P(sub, className="lede-sub")], className="lede wide")
 
 
-def figure(num, fig, key_point, extra=None):
-    """One chart card: tag, question, how to read, the chart, key point, why this chart."""
-    kind, question, how, why = C.CHARTS[num]
-    with st.container(border=True, key=f"card{num}"):
-        st.markdown(f'<div class="tag">Fig. {num:02d} · {kind}</div><div class="ftitle">{question}</div>'
-                    f'<div class="how"><b>How to read:</b> {how}</div>', unsafe_allow_html=True)
-        if extra:
-            extra()
-        st.plotly_chart(fig, width="stretch", config={"displaylogo": False, "scrollZoom": False})
-        st.markdown(f'<div class="key"><span class="k">Key point</span>{key_point.replace("$", "&#36;")}</div>'
-                    f'<div class="why">Why this chart: {why}</div>', unsafe_allow_html=True)
+def section(text):
+    return html.H3(text, className="section")
 
 
-def kpi_row(d):
-    k = A.kpis(d)
-    c = st.columns(5)
-    c[0].metric("Games", f"{k['games']:,}")
-    c[1].metric("Failed", "n/a" if np.isnan(k["failed"]) else A.pct(k["failed"]), help="Fewer than 10 reviews")
-    c[2].metric("Hits", "n/a" if np.isnan(k["hit"]) else A.pct(k["hit"]), help="1,000 or more reviews")
-    c[3].metric("Median reviews", "n/a" if np.isnan(k["median_reviews"]) else f"{k['median_reviews']:,.0f}",
-                help="Half of the games have fewer reviews than this")
-    c[4].metric("Top 1% share", "n/a" if np.isnan(k["top1_share"]) else f"{k['top1_share']:.0%}",
-                help="Share of all reviews that go to the top 1% of games")
+def tiles(items):
+    """A row of small boxes: (big text, title, description)."""
+    return html.Div([html.Div([html.Div(big, className="tile-big"), html.Div(title, className="tile-title"),
+                               html.Div(desc, className="tile-desc")], className="tile") for big, title, desc in items],
+                    className="tiles wide")
 
 
-def panel(big, title, desc, color=None):
-    dot = f'<span class="dot" style="background:{color}"></span>' if color else ""
-    return (f'<div class="panel"><div class="big">{dot}{big}</div><div class="t">{title}</div>'
-            f'<div class="d">{desc}</div></div>')
+# =============================================================================
+# 3. THE PAGE LAYOUT
+# =============================================================================
+header = html.Div(html.Div([
+    html.Div("Steam games analysis / 2006–2024", className="kicker"),
+    html.H1("Why do most Steam games fail?"),
+    html.P(f"{len(df):,} real Steam games, analysed for a small game studio deciding what to make next.",
+           className="standfirst"),
+], className="header-inner"), className="header")
+
+sidebar = html.Div([
+    html.Div(html.Div("Filters", className="side-title"), className="side-head"),
+    html.Div([html.Label("Genre"), dcc.Dropdown(id="genre", options=A.GENRES, multi=True, placeholder="All genres")],
+             className="filter"),
+    html.Div([html.Label("Price"), dcc.Dropdown(id="price", options=A.PRICE_BANDS, multi=True, placeholder="All prices")],
+             className="filter"),
+    html.Div([html.Label("Release years"),
+              dcc.RangeSlider(id="years", min=YEARS[0], max=YEARS[1], step=1, value=YEARS,
+                              marks={y: str(y) for y in range(YEARS[0], YEARS[1] + 1, 6)},
+                              tooltip={"placement": "bottom"})], className="filter"),
+    html.Div([html.Label("Platform"), dcc.RadioItems(id="platform", options=PLATFORMS, value="All",
+                                                     className="radios")], className="filter"),
+    html.Div([html.Label("Publisher"), dcc.RadioItems(id="publisher", options=PUBLISHERS, value="All",
+                                                      className="radios")], className="filter"),
+    html.Button("Reset filters", id="reset"),
+    html.P("An empty dropdown means all. Every key number and every chart on every tab follows these filters.",
+           className="small"),
+], className="sidebar")
+
+tabs = dcc.Tabs(id="tab", value="overview", className="tabs", children=[
+    dcc.Tab(label=label, value=value, className="tab", selected_className="tab--selected")
+    for label, value in [("01  Overview", "overview"), ("02  When?", "when"), ("03  What?", "what"),
+                         ("04  Who?", "who"), ("05  Why?", "why"), ("06  What to do", "fix")]])
+
+FONTS = ("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600"
+         "&family=IBM+Plex+Sans:wght@400;500;600;700&family=Source+Serif+4:opsz,wght@8..60,500;8..60,600"
+         "&display=swap")
+app = Dash(__name__, title="Why Steam games fail", external_stylesheets=[FONTS])
+server = app.server   # for hosting (e.g. Render: gunicorn app:server)
+
+app.layout = html.Div([
+    dcc.Location(id="url"),   # lets a link open a tab directly, e.g. http://127.0.0.1:8050/?tab=why
+    header,
+    html.Div([
+        sidebar,
+        html.Div([
+            html.Div(id="kpis", className="kpis"),
+            tabs,
+            dcc.Loading(html.Div(id="content", className="grid"), color="#1b9e77"),
+            html.Div("Source: Steam Games Dataset (FronkonGames, Kaggle), collected from the Steam store and "
+                     "SteamSpy. Owner numbers are estimates. Failed = fewer than 10 reviews, Hit = 1,000+ reviews.",
+                     className="footer"),
+        ], className="main"),
+    ], className="body"),
+])
 
 
-# ---------------------------------------------------------------- header
-st.markdown(f"""<div class="hero">
-  <div class="eyebrow">Steam games · 2006–2024 · Python data analysis</div>
-  <h1>Why do most Steam games fail?</h1>
-  <p>{len(df_all):,} real Steam games, analysed for a small game studio deciding what to make next.</p>
-  <span class="chip">{len(df_all):,} games</span><span class="chip">12 genres</span>
-  <span class="chip">{int(df_all['reviews'].sum() / 1e6):,} million reviews</span><span class="chip">15 charts</span>
-  <span class="chip">5 filters for every chart</span>
-</div>""", unsafe_allow_html=True)
-
-if df.empty:
-    st.warning("No games match these filters. Widen them in the sidebar or press Reset.")
-    st.stop()
-
-kpi_row(df)
-
-# ================================================================= OVERVIEW
-if sec == "overview":
-    k = A.kpis(df)
-    st.markdown(f'<div class="problem"><div class="big">{A.pct(k["failed"])}</div><div class="d">of these Steam games '
-                f'<b>never reach 10 reviews</b>: almost nobody plays them. Only {A.pct(k["hit"])} become hits.</div></div>',
-                unsafe_allow_html=True)
-    section("The brief", "A small studio asks four questions", "Each section of this dashboard answers one.")
-    q = st.columns(4)
-    for col, (n_, t, d) in zip(q, [("01", "When?", "Is Steam getting too crowded?"),
-                                   ("02", "What?", "Which genres and prices succeed?"),
-                                   ("03", "Who?", "Who gets the players?"),
-                                   ("04", "Why?", "What do failed games have in common?")]):
-        col.markdown(panel(n_, t, d), unsafe_allow_html=True)
-    section("Definitions", "How we measure success", "Steam does not publish sales, so we use reviews: "
-            "every review is a player who bought and played the game.")
-    d = st.columns(4)
-    for col, o in zip(d, A.OUTCOMES):
-        share = (df["outcome"] == o).mean()
-        col.markdown(panel(A.pct(share), o, A.OUTCOME_HELP[o], C.OUTCOME_COLORS[o]), unsafe_allow_html=True)
-    section("The data", "From 125,855 apps to a clean dataset", "Cleaned with pandas in prepare_data.py. "
-            "This chart is about the whole file, so the filters do not change it.")
+# =============================================================================
+# 4. ONE FUNCTION PER TAB
+# =============================================================================
+def overview_tab(f):
+    k = A.kpis(f)
     steps, key = A.cleaning_funnel()
-    figure(1, C.cleaning_funnel(steps), key)
-
-# ================================================================= 01 WHEN
-elif sec == "when":
-    section("01 · When?", "Is Steam too crowded?", "How the number of games, and their chances, changed over time.")
-    t, key = A.releases_per_year(df)
-    figure(2, C.releases_per_year(t), key)
-    t, key = A.failure_by_year(df)
-    figure(3, C.failure_by_year(t), key)
-    grid, key = A.failure_heatmap(df)
-    figure(4, C.failure_heatmap(grid), key)
-
-# ================================================================= 02 WHAT
-elif sec == "what":
-    section("02 · What?", "Which games succeed?", "Genres and prices: where the crowd is, and what players like.")
-    a, b = st.columns(2)
-    with a:
-        t, key = A.genre_counts(df)
-        figure(5, C.genre_counts(t), key)
-    with b:
-        g, order, key = A.genre_scores(df)
-        figure(6, C.genre_scores(g, order), key)
-    a, b = st.columns(2)
-    with a:
-        paid, key = A.price_distribution(df)
-        figure(7, C.price_distribution(paid), key)
-    with b:
-        share, key = A.outcome_by_price(df)
-        figure(8, C.outcome_by_price(share), key)
-    t, key = A.genre_bubbles(df)
-    figure(9, C.genre_bubbles(t), key)
-
-# ================================================================= 03 WHO
-elif sec == "who":
-    section("03 · Who?", "Who wins on Steam?", "Publishers and platforms behind the games people play.")
-    top, key = A.top_publishers(df)
-    figure(10, C.top_publishers(top), key)
-    t, key = A.platform_share(df)
-    a, b = st.columns([3, 2])
-    with a:
-        figure(11, C.platform_share(t), key)
-    with b:
-        st.markdown(panel(A.pct((df["publisher"] == df["developer"]).mean()), "of games are self-published",
-                          "The studio that made the game also sells it, without a publisher's marketing.")
-                    + "<div style='height:12px'></div>"
-                    + panel(f"{df['publisher'].nunique():,}", "different publishers",
-                            "Yet a few big names collect most of the players."), unsafe_allow_html=True)
-
-# ================================================================= 04 WHY
-elif sec == "why":
-    section("04 · Why?", "The root cause: too many games, too little attention",
-            "Players go to a few games. Quality alone does not get you noticed; launch effort does.")
-    a, b = st.columns(2)
-    with a:
-        t, key = A.winner_takes_all(df)
-        figure(12, C.winner_takes_all(t), key)
-    with b:
-        pts, key = A.quality_vs_popularity(df)
-        figure(13, C.quality_vs_popularity(pts), key)
-    a, b = st.columns(2)
-    with a:
-        t, key = A.signal_effect(df)
-        figure(14, C.signal_effect(t), key)
-    with b:
-        t, key = A.signal_dose(df)
-        figure(15, C.signal_dose(t), key)
-    st.caption("Note: these are links, not proof of cause. Bigger studios tend to do all four things, so part of "
-               "the gap comes from bigger budgets.")
-
-# ================================================================= 05 WHAT TO DO
-else:
-    section("05 · What to do", "Four pieces of advice for the studio",
-            "Each one answers a finding, with the numbers for the games in your filter.")
-    r = A.recommendations(df)
-    fmt = lambda x: "n/a" if np.isnan(x) else A.pct(x)
-    tips = [
-        ("Translate the game", f"{fmt(r['lang_1'])} → {fmt(r['lang_4'])}",
-         "Games in one language fail far more often than games in 4+ languages (Fig. 14)."),
-        ("Add achievements", f"{fmt(r['ach_no'])} → {fmt(r['ach_yes'])}",
-         "Achievements are cheap to add and go with a much lower failure rate (Fig. 14)."),
-        ("Find a publisher, or market like one", f"{fmt(r['self'])} → {fmt(r['pub'])}",
-         "Self-published games fail more; publishers bring visibility (Fig. 14)."),
-        (f"Price it {r['best_band']}", f"{fmt(r['best_band_fail'])} failed",
-         "The price range where the fewest games fail (Fig. 8). Avoid December launches: "
-         f"{fmt(r['dec'])} failed vs {fmt(r['spring'])} in Jan–Apr."),
+    return [
+        html.Div([html.Div(A.pct(k["failed"]), className="problem-big"),
+                  html.Div([html.B("of these Steam games never reach 10 reviews"), ": almost nobody plays them. "
+                            f"Only {A.pct(k['hit'])} become hits."], className="problem-text")],
+                 className="problem wide"),
+        section("The brief: four questions from a small game studio"),
+        tiles([("01", "When?", "Is Steam getting too crowded?"), ("02", "What?", "Which genres and prices succeed?"),
+               ("03", "Who?", "Who gets the players?"), ("04", "Why?", "What do failed games have in common?")]),
+        section("How we measure success"),
+        html.P("Steam does not publish sales, so we use reviews: every review is a player who bought and played "
+               "the game.", className="lede-sub wide"),
+        tiles([(A.pct((f["outcome"] == o).mean()), o, A.OUTCOME_HELP[o]) for o in A.OUTCOMES]),
+        section("The data"),
+        html.P("Cleaned with pandas in prepare_data.py. This chart describes the whole file, so the filters do not "
+               "change it.", className="lede-sub wide"),
+        card(1, C.cleaning_funnel(steps), key),
     ]
-    cols = st.columns(2)
-    for i, (t, big, d) in enumerate(tips):
-        cols[i % 2].markdown(panel(big, f"{i + 1}. {t}", d) + "<div style='height:14px'></div>",
-                             unsafe_allow_html=True)
-    st.markdown('<div class="key" style="margin-top:6px"><span class="k">The answer</span>Most Steam games fail '
-                'because the store is flooded and players go to a few games. The games that get noticed are the '
-                'ones launched with more effort: translated, with achievements, on more platforms, and with a '
-                'publisher behind them.</div>', unsafe_allow_html=True)
+
+
+def when_tab(f):
+    t, key2 = A.releases_per_year(f)
+    y, key3 = A.failure_by_year(f)
+    grid, key4 = A.failure_heatmap(f)
+    return [heading("When? Is Steam getting too crowded?", "How the number of games, and their chances, changed."),
+            card(2, C.releases_per_year(t), key2),
+            card(3, C.failure_by_year(y), key3),
+            card(4, C.failure_heatmap(grid), key4)]
+
+
+def what_tab(f):
+    t5, key5 = A.genre_counts(f)
+    g6, order, key6 = A.genre_scores(f)
+    p7, key7 = A.price_distribution(f)
+    s8, key8 = A.outcome_by_price(f)
+    b9, key9 = A.genre_bubbles(f)
+    return [heading("What? Which games succeed?", "Genres and prices: where the crowd is, and what players like."),
+            card(5, C.genre_counts(t5), key5), card(6, C.genre_scores(g6, order), key6),
+            card(7, C.price_distribution(p7), key7), card(8, C.outcome_by_price(s8), key8),
+            card(9, C.genre_bubbles(b9), key9)]
+
+
+def who_tab(f):
+    top, key10 = A.top_publishers(f)
+    plat, key11 = A.platform_share(f)
+    return [heading("Who? Who wins on Steam?", "Publishers and platforms behind the games people play."),
+            tiles([(A.pct(f["self_published"].mean()), "self-published",
+                    "The studio that made the game also sells it, without a publisher's marketing."),
+                   (f"{f['publisher'].nunique():,}", "different publishers",
+                    "Yet a few big names collect most of the players.")]),
+            card(10, C.top_publishers(top), key10), card(11, C.platform_share(plat), key11)]
+
+
+def why_tab(f):
+    t12, key12 = A.winner_takes_all(f)
+    p13, key13 = A.quality_vs_popularity(f)
+    t14, key14 = A.signal_effect(f)
+    t15, key15 = A.signal_dose(f)
+    return [heading("Why? Too many games, too little attention",
+                    "Players go to a few games. Quality alone does not get you noticed; launch effort does."),
+            card(12, C.winner_takes_all(t12), key12), card(13, C.quality_vs_popularity(p13), key13),
+            card(14, C.signal_effect(t14), key14), card(15, C.signal_dose(t15), key15),
+            html.P("Note: these are links, not proof of cause. Bigger studios tend to do all four things, so part "
+                   "of the gap comes from bigger budgets.", className="small wide")]
+
+
+def fix_tab(f):
+    r = A.recommendations(f)
+    k = A.kpis(f)
+    fmt = A.pct
+    return [heading("What should the studio do?", "Each piece of advice answers a finding, with the numbers for "
+                                                   "the games in your filter."),
+            html.Div(html.P("Most Steam games fail because the store is flooded and players go to a few games. The "
+                            "games that get noticed are the ones launched with more effort: translated, with "
+                            "achievements, on more platforms, and with a publisher behind them.",
+                            className="rootcause-text"), className="rootcause wide"),
+            section("What we found"),
+            html.Ol([html.Li(markdown(t)) for t in [
+                A.failure_by_year(f)[1], A.winner_takes_all(f)[1], A.quality_vs_popularity(f)[1],
+                A.signal_dose(f)[1], A.outcome_by_price(f)[1],
+                f"Overall {fmt(k['failed'])} of these games failed and {fmt(k['hit'])} became hits."]],
+                className="findings wide"),
+            section("Recommendations for the studio"),
+            html.Ol([
+                html.Li(f"Translate the game into 4+ languages: failure drops from {fmt(r['lang_1'])} to "
+                        f"{fmt(r['lang_4'])} (Fig. 14)."),
+                html.Li(f"Add Steam achievements: {fmt(r['ach_no'])} → {fmt(r['ach_yes'])} failed (Fig. 14)."),
+                html.Li(f"Find a publisher, or market like one: {fmt(r['self'])} of self-published games failed vs "
+                        f"{fmt(r['pub'])} with a publisher (Fig. 14)."),
+                html.Li(f"Price it {r['best_band']}, where the fewest games fail ({fmt(r['best_band_fail'])}, Fig. 8). "
+                        f"Avoid December: {fmt(r['dec'])} failed vs {fmt(r['spring'])} in January–April."),
+            ], className="recs wide")]
+
+
+TABS = {"overview": overview_tab, "when": when_tab, "what": what_tab, "who": who_tab, "why": why_tab,
+        "fix": fix_tab}
+
+
+# =============================================================================
+# 5. CALLBACKS - the same 5 filters feed the key numbers and every chart
+# =============================================================================
+FILTERS = [Input("genre", "value"), Input("price", "value"), Input("years", "value"),
+           Input("platform", "value"), Input("publisher", "value")]
+
+
+@app.callback(Output("kpis", "children"), *FILTERS)
+def update_kpis(genre, price, years, platform, publisher):
+    f = selection(genre, price, years, platform, publisher)
+    k = A.kpis(f)
+    if not len(f):
+        return [kpi("Games", "0", "no games match")]
+    return [
+        kpi("Games", f"{k['games']:,}", "in the selection"),
+        kpi("Failed", A.pct(k["failed"]), "under 10 reviews", "bad"),
+        kpi("Hits", A.pct(k["hit"]), "1,000+ reviews", "good"),
+        kpi("Median reviews", f"{k['median_reviews']:,.0f}", "half the games have fewer"),
+        kpi("Top 1% share", f"{k['top1_share']:.0%}", "of all reviews", "warn"),
+        kpi("Self-published", A.pct(f["self_published"].mean()), "no publisher"),
+    ]
+
+
+@app.callback(Output("content", "children"), Input("tab", "value"), *FILTERS)
+def update_tab(tab, genre, price, years, platform, publisher):
+    f = selection(genre, price, years, platform, publisher)
+    if not len(f):
+        return [html.H2("No games match these filters. Try a wider selection or press Reset.", className="lede wide")]
+    return TABS[tab](f)
+
+
+@app.callback(Output("tab", "value"), Input("url", "search"))
+def open_tab_from_link(search):
+    """?tab=why in the address opens that tab (handy during the presentation)."""
+    wanted = (search or "").replace("?tab=", "")
+    return wanted if wanted in TABS else "overview"
+
+
+@app.callback(Output("genre", "value"), Output("price", "value"), Output("years", "value"),
+              Output("platform", "value"), Output("publisher", "value"),
+              Input("reset", "n_clicks"), prevent_initial_call=True)
+def reset_filters(n_clicks):
+    return [], [], YEARS, "All", "All"
+
+
+# =============================================================================
+# 6. START THE APP
+# =============================================================================
+if __name__ == "__main__":
+    app.run(debug=False, port=8050)
