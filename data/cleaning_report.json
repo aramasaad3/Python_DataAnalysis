@@ -1,0 +1,22 @@
+[
+ {
+  "step": "Raw Steam apps in the Kaggle file",
+  "games": 125855
+ },
+ {
+  "step": "Released 2006-2024",
+  "games": 97538
+ },
+ {
+  "step": "Without playtests",
+  "games": 92669
+ },
+ {
+  "step": "Without software and apps with no genre",
+  "games": 91337
+ },
+ {
+  "step": "Without adult-only titles",
+  "games": 87343
+ }
+]
